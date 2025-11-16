@@ -5,3 +5,6 @@ download-translation-model:
 download-whisper-model:
 	ct2-transformers-converter --model openai/whisper-medium --output_dir whisper-medium-ct2
 		
+run:
+	python3 translate.py
+	python3 whisper.py		
