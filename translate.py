@@ -14,7 +14,7 @@ with open("translation_text.txt", "r", encoding="utf-8") as f:
 sentences = re.split(r"(?<=[.!?])\s+", text.strip())
 
 device = "cpu"
-for compute_type in ["int8", "float32"]:
+for compute_type in ctranslate2.get_supported_compute_types(device):
 
     translator = ctranslate2.Translator(
         "eng-cat/ctranslate2/",
@@ -46,9 +46,8 @@ for compute_type in ["int8", "float32"]:
     final_translation = " ".join(translations)
 
     print(f"--- compute_type : {compute_type} -----")
-    print("Translation:\n")
-    print(final_translation[0:100])
-    print(f"\nTime used: {elapsed_time:.2f} seconds")
+    print(f"Translation: {final_translation[0:100]}")
+    print(f"Time used: {elapsed_time:.2f} seconds")
     print(f"Tokens processed: {total_tokens}")
     print(f"Tokens per second: {total_tokens / elapsed_time:.2f}\n")
 print(f"device: {device}")

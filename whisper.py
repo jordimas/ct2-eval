@@ -16,9 +16,9 @@ features = ctranslate2.StorageView.from_array(inputs.input_features)
 # -------------------------
 
 device = "cpu"
-for compute_type in ["int8", "float32"]:
+for compute_type in ctranslate2.get_supported_compute_types(device):
     model = ctranslate2.models.Whisper(
-        "whisper-medium-ct2", compute_type=compute_type, device=device
+        "whisper-tiny-ct2", compute_type=compute_type, device=device
     )
 
     # Detect language
@@ -60,12 +60,10 @@ for compute_type in ["int8", "float32"]:
     transcription = processor.decode(output_tokens)
 
     print(f"--- compute_type : {compute_type} -----")
-    print("Transcription:")
-    print(transcription[0:100])
-
+    print(f"Transcription: {transcription[0:100]}")
     print(f"Total output tokens: {num_tokens}")
     print(f"Total time: {elapsed:.3f} seconds")
-    print(f"Tokens per second: {tps:.2f} tokens/sec")
+    print(f"Tokens per second: {tps:.2f} tokens/sec\n")
 
 print(f"device: {device}")
 print(f"ctranslate2: {ctranslate2.__version__}")
