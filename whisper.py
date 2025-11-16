@@ -14,11 +14,6 @@ inputs = processor(audio, return_tensors="np", sampling_rate=16000)
 features = ctranslate2.StorageView.from_array(inputs.input_features)
 
 # -------------------------
-# Load the model
-# -------------------------
-model = ctranslate2.models.Whisper("whisper-medium-ct2")
-
-# -------------------------
 # Detect language
 # -------------------------
 results = model.detect_language(features)
@@ -34,37 +29,37 @@ prompt = processor.tokenizer.convert_tokens_to_ids(
     ]
 )
 
-# -------------------------
-# Run transcription + timing
-# -------------------------
-start_time = time.time()
+for compute_type in ["int8", "float32"]:
+    model = ctranslate2.models.Whisper("whisper-medium-ct2", compute_type=compute_type)
 
-results = model.generate(features, [prompt])
+    # -------------------------
+    # Run transcription + timing
+    # -------------------------
+    start_time = time.time()
 
-end_time = time.time()
-elapsed = end_time - start_time
+    results = model.generate(features, [prompt])
 
-# -------------------------
-# Extract metrics
-# -------------------------
-output_tokens = results[0].sequences_ids[0]
-num_tokens = len(output_tokens)
+    end_time = time.time()
+    elapsed = end_time - start_time
 
-tps = num_tokens / elapsed if elapsed > 0 else 0
+    # -------------------------
+    # Extract metrics
+    # -------------------------
+    output_tokens = results[0].sequences_ids[0]
+    num_tokens = len(output_tokens)
 
-# -------------------------
-# Decode transcription
-# -------------------------
-transcription = processor.decode(output_tokens)
+    tps = num_tokens / elapsed if elapsed > 0 else 0
 
-# -------------------------
-# Print results
-# -------------------------
-print("\n=== Transcription ===")
-print(transcription)
+    # -------------------------
+    # Decode transcription
+    # -------------------------
+    transcription = processor.decode(output_tokens)
 
-print("\n=== Performance Metrics ===")
-print(f"Total output tokens: {num_tokens}")
-print(f"Total time: {elapsed:.3f} seconds")
-print(f"Tokens per second: {tps:.2f} tokens/sec")
+    print(f"--- compute_type : {compute_type} -----")
+    print("\n=== Transcription ===")
+    print(transcription[0:100])
 
+    print("\n=== Performance Metrics ===")
+    print(f"Total output tokens: {num_tokens}")
+    print(f"Total time: {elapsed:.3f} seconds")
+    print(f"Tokens per second: {tps:.2f} tokens/sec")
