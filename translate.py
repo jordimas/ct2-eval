@@ -14,7 +14,7 @@ with open("translation_text.txt", "r", encoding="utf-8") as f:
 sentences = re.split(r"(?<=[.!?])\s+", text.strip())
 
 device = "cpu"
-for compute_type in ctranslate2.get_supported_compute_types(device):
+for compute_type in sorted(ctranslate2.get_supported_compute_types(device)):
 
     translator = ctranslate2.Translator(
         "eng-cat/ctranslate2/",
