@@ -14,23 +14,27 @@ inputs = processor(audio, return_tensors="np", sampling_rate=16000)
 features = ctranslate2.StorageView.from_array(inputs.input_features)
 
 # -------------------------
-# Detect language
-# -------------------------
-results = model.detect_language(features)
-language, probability = results[0][0]
-print("Detected language %s with probability %f" % (language, probability))
 
-prompt = processor.tokenizer.convert_tokens_to_ids(
-    [
-        "<|startoftranscript|>",
-        language,
-        "<|transcribe|>",
-        "<|notimestamps|>",
-    ]
-)
-
+device = "cpu"
 for compute_type in ["int8", "float32"]:
-    model = ctranslate2.models.Whisper("whisper-medium-ct2", compute_type=compute_type)
+    model = ctranslate2.models.Whisper(
+        "whisper-medium-ct2", compute_type=compute_type, device=device
+    )
+
+    # Detect language
+    # -------------------------
+    results = model.detect_language(features)
+    language, probability = results[0][0]
+    #    print("Detected language %s with probability %f" % (language, probability))
+
+    prompt = processor.tokenizer.convert_tokens_to_ids(
+        [
+            "<|startoftranscript|>",
+            language,
+            "<|transcribe|>",
+            "<|notimestamps|>",
+        ]
+    )
 
     # -------------------------
     # Run transcription + timing
@@ -56,10 +60,12 @@ for compute_type in ["int8", "float32"]:
     transcription = processor.decode(output_tokens)
 
     print(f"--- compute_type : {compute_type} -----")
-    print("\n=== Transcription ===")
+    print("Transcription:")
     print(transcription[0:100])
 
-    print("\n=== Performance Metrics ===")
     print(f"Total output tokens: {num_tokens}")
     print(f"Total time: {elapsed:.3f} seconds")
     print(f"Tokens per second: {tps:.2f} tokens/sec")
+
+print(f"device: {device}")
+print(f"ctranslate2: {ctranslate2.__version__}")

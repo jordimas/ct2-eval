@@ -13,11 +13,13 @@ with open("translation_text.txt", "r", encoding="utf-8") as f:
 # Split text into sentences
 sentences = re.split(r"(?<=[.!?])\s+", text.strip())
 
-
+device = "cpu"
 for compute_type in ["int8", "float32"]:
 
     translator = ctranslate2.Translator(
-        "eng-cat/ctranslate2/", compute_type=compute_type
+        "eng-cat/ctranslate2/",
+        compute_type=compute_type,
+        device=device,
     )
     start_time = time.time()
 
@@ -49,3 +51,5 @@ for compute_type in ["int8", "float32"]:
     print(f"\nTime used: {elapsed_time:.2f} seconds")
     print(f"Tokens processed: {total_tokens}")
     print(f"Tokens per second: {total_tokens / elapsed_time:.2f}\n")
+print(f"device: {device}")
+print(f"ctranslate2: {ctranslate2.__version__}")
