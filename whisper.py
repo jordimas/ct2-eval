@@ -2,6 +2,7 @@ import time
 import ctranslate2
 import librosa
 import transformers
+import numpy as np
 
 # -------------------------
 # Load and resample the audio
@@ -16,7 +17,7 @@ features = ctranslate2.StorageView.from_array(inputs.input_features)
 # -------------------------
 
 device = "cpu"
-for compute_type in ctranslate2.get_supported_compute_types(device):
+for compute_type in sorted(ctranslate2.get_supported_compute_types(device)):
     model = ctranslate2.models.Whisper(
         "whisper-tiny-ct2", compute_type=compute_type, device=device
     )
@@ -41,18 +42,28 @@ for compute_type in ctranslate2.get_supported_compute_types(device):
     # -------------------------
     start_time = time.time()
 
-    results = model.generate(features, [prompt])
+    num_tokens = 0
+    tps_values = []
+    for i in range(0, 10):
 
-    end_time = time.time()
-    elapsed = end_time - start_time
+        iter_start = time.time()
+        results = model.generate(features, [prompt])
+        iter_end = time.time()
 
-    # -------------------------
-    # Extract metrics
-    # -------------------------
-    output_tokens = results[0].sequences_ids[0]
-    num_tokens = len(output_tokens)
+        end_time = time.time()
+        output_tokens = results[0].sequences_ids[0]
+        num_tokens += len(output_tokens)
 
+        # 1 iteraction
+        iter_tokens = len(output_tokens)
+        iter_elapsed = iter_end - iter_start
+        iter_tps = iter_tokens / iter_elapsed if iter_elapsed > 0 else 0
+        tps_values.append(iter_tps)
+
+
+    elapsed = end_time - start_time   
     tps = num_tokens / elapsed if elapsed > 0 else 0
+    tps_std = np.std(tps_values) 
 
     # -------------------------
     # Decode transcription
@@ -63,7 +74,7 @@ for compute_type in ctranslate2.get_supported_compute_types(device):
     print(f"Transcription: {transcription[0:100]}")
     print(f"Total output tokens: {num_tokens}")
     print(f"Total time: {elapsed:.3f} seconds")
-    print(f"Tokens per second: {tps:.2f} tokens/sec\n")
+    print(f"Tokens per second: {tps:.2f} ± {tps_std:.2f} tokens/sec\n")
 
 print(f"device: {device}")
 print(f"ctranslate2: {ctranslate2.__version__}")
