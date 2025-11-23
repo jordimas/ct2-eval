@@ -8,3 +8,6 @@ download-whisper-model:
 run:
 	python3 translate.py
 	python3 whisper.py		
+
+convert-gemma3:
+	ct2-transformers-converter --model google/gemma-3-1b-it --output_dir gemma-3-1b-it.ct2
