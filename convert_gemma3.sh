@@ -1,10 +1,10 @@
 #!/bin/bash
 
-export OMP_NUM_THREADS=1
-export MKL_NUM_THREADS=1
+#export OMP_NUM_THREADS=1
+#export MKL_NUM_THREADS=1
 
 # List of models
-models=("gemma-3-27b-it" "gemma-3-12b-it" "gemma-3-4b-it" "gemma-3-1b-it")
+models=("gemma-3-1b-it" "gemma-3-4b-it" "gemma-3-12b-it" "gemma-3-27b-it")
 
 # Loop through each model
 for model in "${models[@]}"; do
