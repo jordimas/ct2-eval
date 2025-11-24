@@ -3,7 +3,7 @@ from transformers import AutoTokenizer
 import ctranslate2
 
 # Load tokenizer from original model
-tokenizer = AutoTokenizer.from_pretrained("google/gemma-4-1b-it")
+tokenizer = AutoTokenizer.from_pretrained("google/gemma-3-4b-it")
 
 # Load CTranslate2 generator
 generator = ctranslate2.Generator("gemma-3-4b-it.ct2", device="cpu")
