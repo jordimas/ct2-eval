@@ -3,10 +3,10 @@ from transformers import AutoTokenizer
 import ctranslate2
 
 # Load tokenizer from original model
-tokenizer = AutoTokenizer.from_pretrained("google/gemma-3-1b-it")
+tokenizer = AutoTokenizer.from_pretrained("google/gemma-4-1b-it")
 
 # Load CTranslate2 generator
-generator = ctranslate2.Generator("gemma-3-1b-it.ct2", device="cpu")
+generator = ctranslate2.Generator("gemma-3-4b-it.ct2", device="cpu")
 
 #prompt = "<start_of_turn>user\nQuina és la capital d'Alemania?<end_of_turn>\n<start_of_turn>model\n"
 
