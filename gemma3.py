@@ -6,7 +6,7 @@ import ctranslate2
 tokenizer = AutoTokenizer.from_pretrained("google/gemma-3-4b-it")
 
 # Load CTranslate2 generator
-generator = ctranslate2.Generator("gemma-3-4b-it.ct2", device="cpu")
+generator = ctranslate2.Generator("gemma_3_4b_it.ct2", device="cpu")
 
 #prompt = "<start_of_turn>user\nQuina és la capital d'Alemania?<end_of_turn>\n<start_of_turn>model\n"
 
