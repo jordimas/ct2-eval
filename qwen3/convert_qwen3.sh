@@ -4,7 +4,7 @@
 #export MKL_NUM_THREADS=1
 
 # List of models
-models=("gemma-3-1b-it" "gemma-3-4b-it" "gemma-3-12b-it" "gemma-3-27b-it")
+models=("Qwen3-4B-Thinking-2507", "Qwen3-4B-Instruct-2507")
 
 # Loop through each model
 for model in "${models[@]}"; do
@@ -14,10 +14,9 @@ for model in "${models[@]}"; do
     echo "Converting model $model into directory $dir_name ..."
 
     # Run the converter
-    ct2-transformers-converter --model "google/$model" --force --quantization int8 --output_dir "$dir_name"
+    ct2-transformers-converter --model "Qwen/$model" --force --quantization int8 --output_dir "$dir_name"
 
     # Run the Python script with the environment variable
-    KMP_DUPLICATE_LIB_OK=TRUE python gemma3.py
 done
 
 echo "All models processed."
