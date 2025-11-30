@@ -2,6 +2,8 @@ import time
 import argparse
 from transformers import AutoTokenizer
 import ctranslate2
+import os
+import psutil  # new import
 
 # ------------------ CLI Arguments ------------------
 parser = argparse.ArgumentParser(description="Run CTranslate2 generation with a specified model")
@@ -16,12 +18,6 @@ tokenizer = AutoTokenizer.from_pretrained(args.hf_model)
 # Load CTranslate2 generator
 generator = ctranslate2.Generator(args.ct2_model, device="cpu")
 
-prompt2 = """
-<|im_start|>user
-Explain Gaudí in 50 words.<|im_end|>
-<|im_start|>assistant
-"""
-
 prompt = """<|im_start|>user
 Explica'm en 300 paraules com a màxim:
 - que és Softcatalà.
@@ -30,7 +26,6 @@ Explica'm en 300 paraules com a màxim:
 <|im_end|>
 <|im_start|>assistant
 """
-
 
 # Encode prompt to IDs, then convert to tokens (strings)
 token_ids = tokenizer.encode(prompt)
@@ -61,4 +56,19 @@ print(text)
 print(f"\nInference time: {inference_time:.4f} seconds")
 print(f"Tokenizer: {args.hf_model}")
 print(f"CT2: {args.ct2_model}")
+
+# ---------------- Model size ----------------
+model_bin_path = os.path.join(args.ct2_model, "model.bin")
+if os.path.exists(model_bin_path):
+    size_bytes = os.path.getsize(model_bin_path)
+    size_gb = size_bytes / (1024 ** 3)
+    print(f"Model size on disk: {size_gb:.2f} GB")
+else:
+    print("model.bin not found in the CT2 directory")
+
+# ---------------- Memory usage ----------------
+process = psutil.Process(os.getpid())
+mem_bytes = process.memory_info().rss
+mem_gb = mem_bytes / (1024 ** 3)
+print(f"Memory used by Python process: {mem_gb:.2f} GB")
 

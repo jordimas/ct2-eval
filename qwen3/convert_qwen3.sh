@@ -7,7 +7,8 @@
 ##models=("Qwen3-4B-Thinking-2507", "Qwen3-4B-Instruct-2507")
 #models=("Qwen3-4B-Instruct-2507")
 #models=("Qwen3-32B" "Qwen3-14B" "Qwen3-4B" "Qwen3-4B-Thinking-2507", "Qwen3-4B-Instruct-2507")
-models=Qwen3-4B
+models=("Qwen3-30B-A3B")
+
 
 # Loop through each model
 for model in "${models[@]}"; do
