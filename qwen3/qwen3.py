@@ -5,8 +5,8 @@ import ctranslate2
 
 # ------------------ CLI Arguments ------------------
 parser = argparse.ArgumentParser(description="Run CTranslate2 generation with a specified model")
-parser.add_argument("--hf_model", type=str, required=True, help="Hugging Face model name (e.g., Qwen/Qwen3-4B)")
-parser.add_argument("--ct2_model", type=str, required=True, help="CTranslate2 model path (e.g., Qwen3-4B.ct2/)")
+parser.add_argument("--hf_model", type=str, help="Hugging Face model name (e.g., Qwen/Qwen3-4B)", default="Qwen/Qwen3-4B")
+parser.add_argument("--ct2_model", type=str, help="CTranslate2 model path (e.g., Qwen3-4B.ct2/)", default="Qwen3_4B.ct2")
 args = parser.parse_args()
 # ---------------------------------------------------
 
@@ -16,11 +16,21 @@ tokenizer = AutoTokenizer.from_pretrained(args.hf_model)
 # Load CTranslate2 generator
 generator = ctranslate2.Generator(args.ct2_model, device="cpu")
 
-prompt = """
+prompt2 = """
 <|im_start|>user
 Explain Gaudí in 50 words.<|im_end|>
 <|im_start|>assistant
 """
+
+prompt = """<|im_start|>user
+Explica'm en 300 paraules com a màxim:
+- que és Softcatalà.
+- els 3 projectes principals
+- els 3 col·laboradors principals
+<|im_end|>
+<|im_start|>assistant
+"""
+
 
 # Encode prompt to IDs, then convert to tokens (strings)
 token_ids = tokenizer.encode(prompt)
@@ -49,4 +59,6 @@ text = tokenizer.convert_tokens_to_string(generated_tokens)
 
 print(text)
 print(f"\nInference time: {inference_time:.4f} seconds")
+print(f"Tokenizer: {args.hf_model}")
+print(f"CT2: {args.ct2_model}")
 
