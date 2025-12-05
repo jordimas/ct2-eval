@@ -2,18 +2,35 @@ import sentencepiece as spm
 import ctranslate2
 import re
 import time
+import argparse
 
-# Load tokenizer and translator
+# ------------------------
+# Parse CLI arguments
+# ------------------------
+parser = argparse.ArgumentParser()
+parser.add_argument("--device", type=str, default="cpu",
+                    help="Device: cpu, cuda")
+args = parser.parse_args()
+
+device = args.device
+
+# ------------------------
+# Load tokenizer
+# ------------------------
 tokenizer = spm.SentencePieceProcessor(model_file="eng-cat/tokenizer/sp_m.model")
 
-# Read file
+# ------------------------
+# Read input text
+# ------------------------
 with open("translation_text.txt", "r", encoding="utf-8") as f:
     text = f.read()
 
 # Split text into sentences
 sentences = re.split(r"(?<=[.!?])\s+", text.strip())
 
-device = "cpu"
+# ------------------------
+# Benchmark translations
+# ------------------------
 for compute_type in sorted(ctranslate2.get_supported_compute_types(device)):
 
     translator = ctranslate2.Translator(
@@ -21,34 +38,36 @@ for compute_type in sorted(ctranslate2.get_supported_compute_types(device)):
         compute_type=compute_type,
         device=device,
     )
-    start_time = time.time()
 
+    start_time = time.time()
     total_tokens = 0
-    for i in range(0, 10):
+
+    for i in range(10):
+
         # Tokenize each sentence
         tokenized_sentences = [
             tokenizer.encode(sentence, out_type=str) for sentence in sentences
         ]
 
-        # Count total tokens
+        # Count tokens
         total_tokens += sum(len(tokens) for tokens in tokenized_sentences)
 
         # Translate batch
         translated_batches = translator.translate_batch(tokenized_sentences)
 
-        # Decode each translated sentence
-        translations = [tokenizer.decode(t[0]["tokens"]) for t in translated_batches]
+    end_time = time.time()
+    elapsed_time = end_time - start_time
 
-        end_time = time.time()
-        elapsed_time = end_time - start_time
-
-    # Join translated sentences
+    # Decode results
+    translations = [tokenizer.decode(t[0]["tokens"]) for t in translated_batches]
     final_translation = " ".join(translations)
 
     print(f"--- compute_type : {compute_type} -----")
-    print(f"Translation: {final_translation[0:100]}")
+    print(f"Translation: {final_translation[:100]}")
     print(f"Time used: {elapsed_time:.2f} seconds")
     print(f"Tokens processed: {total_tokens}")
     print(f"Tokens per second: {total_tokens / elapsed_time:.2f}\n")
-print(f"device: {device}")
-print(f"ctranslate2: {ctranslate2.__version__}")
+
+print(f"Selected device: {device}")
+print(f"CTranslate2 version: {ctranslate2.__version__}")
+
