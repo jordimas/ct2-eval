@@ -57,7 +57,7 @@ for compute_type in sorted(ctranslate2.get_supported_compute_types(device)):
 
     end_time = time.time()
     elapsed_time = end_time - start_time
-
+:
     # Decode results
     translations = [tokenizer.decode(t[0]["tokens"]) for t in translated_batches]
     final_translation = " ".join(translations)
