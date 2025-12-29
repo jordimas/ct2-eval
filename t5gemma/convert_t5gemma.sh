@@ -22,7 +22,7 @@ for model in "${models[@]}"; do
     ct2-transformers-converter --model "$model" --force --quantization int8 --output_dir "$dir_name"
 
     # Run the Python script with the environment variable
-    KMP_DUPLICATE_LIB_OK=TRUE python t5.py --hf_model $model --ct_model "$dir_name"
+    KMP_DUPLICATE_LIB_OK=TRUE python t5.py --hf-model $model --ct-model "$dir_name"
 done
 
 echo "All models processed."
