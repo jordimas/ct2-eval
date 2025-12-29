@@ -19,10 +19,10 @@ for model in "${models[@]}"; do
     echo "Converting model $model into directory $dir_name ..."
 
     # Run the converter
-    ct2-transformers-converter --model "google/$model" --force --quantization int8 --output_dir "$dir_name"
+    ct2-transformers-converter --model "$model" --force --quantization int8 --output_dir "$dir_name"
 
     # Run the Python script with the environment variable
-    KMP_DUPLICATE_LIB_OK=TRUE python t5.py
+    KMP_DUPLICATE_LIB_OK=TRUE python t5.py --hf_model $model --ct_model "$dir_name"
 done
 
 echo "All models processed."
