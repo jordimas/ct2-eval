@@ -4,7 +4,7 @@
 #export MKL_NUM_THREADS=1
 
 # List of models
-models = (
+models=(
     "google/t5gemma-s-s-ul2",
     "google/t5gemma-s-s-prefixlm",
     "google/t5gemma-s-s-ul2-it",
@@ -41,10 +41,7 @@ models = (
 
 models=(
     # Small (0.3B)
-    "google/t5gemma-s-s-ul2"
-    "google/t5gemma-s-s-prefixlm"
-    "google/t5gemma-s-s-ul2-it"
-    "google/t5gemma-s-s-prefixlm-it")
+    "google/t5gemma-9b-2b-prefixlm-it")
 
 # Loop through each model
 for model in "${models[@]}"; do
