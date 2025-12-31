@@ -5,37 +5,37 @@
 
 # List of models
 models=(
-    "google/t5gemma-s-s-ul2",
-    "google/t5gemma-s-s-prefixlm",
-    "google/t5gemma-s-s-ul2-it",
-    "google/t5gemma-s-s-prefixlm-it",
-    "google/t5gemma-b-b-ul2",
-    "google/t5gemma-b-b-prefixlm",
-    "google/t5gemma-b-b-ul2-it",
-    "google/t5gemma-b-b-prefixlm-it",
-    "google/t5gemma-l-l-ul2",
-    "google/t5gemma-l-l-prefixlm",
-    "google/t5gemma-l-l-ul2-it",
-    "google/t5gemma-l-l-prefixlm-it",
-    "google/t5gemma-ml-ml-ul2",
-    "google/t5gemma-ml-ml-prefixlm",
-    "google/t5gemma-ml-ml-ul2-it",
-    "google/t5gemma-ml-ml-prefixlm-it",
-    "google/t5gemma-xl-xl-ul2",
-    "google/t5gemma-xl-xl-prefixlm",
-    "google/t5gemma-xl-xl-ul2-it",
-    "google/t5gemma-xl-xl-prefixlm-it",
-    "google/t5gemma-2b-2b-ul2",
-    "google/t5gemma-2b-2b-prefixlm",
-    "google/t5gemma-2b-2b-ul2-it",
-    "google/t5gemma-2b-2b-prefixlm-it",
-    "google/t5gemma-9b-9b-ul2",
-    "google/t5gemma-9b-9b-prefixlm",
-    "google/t5gemma-9b-9b-ul2-it",
-    "google/t5gemma-9b-9b-prefixlm-it",
-    "google/t5gemma-9b-2b-ul2",
-    "google/t5gemma-9b-2b-prefixlm",
-    "google/t5gemma-9b-2b-ul2-it",
+    "google/t5gemma-s-s-ul2"
+    "google/t5gemma-s-s-prefixlm"
+    "google/t5gemma-s-s-ul2-it"
+    "google/t5gemma-s-s-prefixlm-it"
+    "google/t5gemma-b-b-ul2"
+    "google/t5gemma-b-b-prefixlm"
+    "google/t5gemma-b-b-ul2-it"
+    "google/t5gemma-b-b-prefixlm-it"
+    "google/t5gemma-l-l-ul2"
+    "google/t5gemma-l-l-prefixlm"
+    "google/t5gemma-l-l-ul2-it"
+    "google/t5gemma-l-l-prefixlm-it"
+    "google/t5gemma-ml-ml-ul2"
+    "google/t5gemma-ml-ml-prefixlm"
+    "google/t5gemma-ml-ml-ul2-it"
+    "google/t5gemma-ml-ml-prefixlm-it"
+    "google/t5gemma-xl-xl-ul2"
+    "google/t5gemma-xl-xl-prefixlm"
+    "google/t5gemma-xl-xl-ul2-it"
+    "google/t5gemma-xl-xl-prefixlm-it"
+    "google/t5gemma-2b-2b-ul2"
+    "google/t5gemma-2b-2b-prefixlm"
+    "google/t5gemma-2b-2b-ul2-it"
+    "google/t5gemma-2b-2b-prefixlm-it"
+    "google/t5gemma-9b-9b-ul2"
+    "google/t5gemma-9b-9b-prefixlm"
+    "google/t5gemma-9b-9b-ul2-it"
+    "google/t5gemma-9b-9b-prefixlm-it"
+    "google/t5gemma-9b-2b-ul2"
+    "google/t5gemma-9b-2b-prefixlm"
+    "google/t5gemma-9b-2b-ul2-it"
     "google/t5gemma-9b-2b-prefixlm-it"
 )
 
