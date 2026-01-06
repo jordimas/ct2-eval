@@ -36,7 +36,6 @@ bleu = BLEU()
 all_results = {}
 
 for device in ["cpu", "cuda"]:
-    print(f"\n{'='*60}")
     print(f"DEVICE: {device.upper()}")
     print(f"{'='*60}")
 
