@@ -70,7 +70,6 @@ print("=" * 70)
 results = []
 
 for device in devices:
-    print(f"\n{'='*70}")
     print(f"DEVICE: {device.upper()}")
     print(f"{'='*70}")
 
@@ -135,7 +134,7 @@ for device in devices:
         )
 
         print(
-            f"WER: {word_error_rate:.3f}% | Time: {elapsed_time:.2f}s | Audio: {total_audio_duration:.2f}s | RTF: {rtf:.4f} (lower=faster) | Speed: {1/rtf:.2f}x"
+            f"  WER: {word_error_rate:.3f}% | Time: {elapsed_time:.2f}s | Audio: {total_audio_duration:.2f}s | RTF: {rtf:.4f} (lower=faster) | Speed: {1/rtf:.2f}x"
         )
         print(f"  Sample transcription: {all_transcriptions[0][:80]}...")
         del model
@@ -152,8 +151,9 @@ print(
 print("-" * 80)
 for r in results:
     print(
-        f"{r['device']:<10} {r['compute_type']:<15} {r['wer']:<12.3f} {r['time']:<12.2f} {r['rtf']:<12.4f} {r['speed']:<10.2f}x"
+        f"{r['device']:<10} {r['compute_type']:<15} {r['wer']:<12.3f} {r['time']:<12.2f} {r['rtf']:<12.4f} {r['speed']:<10.2f}"
     )
 
 print(f"\nTotal audio duration: {results[0]['audio_duration']:.2f} seconds")
 print(f"Number of samples: {len(samples)}")
+print(f"CTranslate2 version: {ctranslate2.__version__}")
