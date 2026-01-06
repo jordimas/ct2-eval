@@ -53,7 +53,6 @@ for compute_type in sorted(ctranslate2.get_supported_compute_types(device)):
         total_tokens += sum(len(tokens) for tokens in tokenized_sentences)
 
         # Translate batch
-        print(tokenized_sentences)
         translated_batches = translator.translate_batch(tokenized_sentences)
 
     end_time = time.time()
