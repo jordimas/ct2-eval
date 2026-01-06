@@ -4,7 +4,6 @@ import os
 import time
 from datasets import load_dataset
 from jiwer import wer
-from tqdm import tqdm
 from transformers.models.whisper.english_normalizer import EnglishTextNormalizer
 import ctranslate2
 from faster_whisper import WhisperModel
@@ -46,7 +45,7 @@ dataset_stream = load_dataset("librispeech_asr", "clean", split="validation", st
 # Pre-fetch and buffer samples to avoid streaming overhead during timing
 print("Pre-fetching audio samples...")
 samples = []
-for i, sample in enumerate(tqdm(dataset_stream, desc="Buffering samples")):
+for i, sample in enumerate(dataset_stream):
     samples.append({
         "audio_array": sample["audio"]["array"],
         "sampling_rate": sample["audio"]["sampling_rate"],
@@ -74,7 +73,7 @@ for device in devices:
     print(f"Supported compute types: {sorted(supported_compute_types)}")
     
     for compute_type in sorted(supported_compute_types):
-        print(f"\nTesting {device} / {compute_type}")
+        print(f"\nTesting {compute_type}")
         
         # Load model with current device and compute type
         model = WhisperModel(model_path, device=device, compute_type=compute_type)
@@ -86,7 +85,7 @@ for device in devices:
         start_time = time.time()
         
         # Iterate over the pre-fetched samples and run inference
-        for sample in tqdm(samples, desc=f"Evaluating ({device}/{compute_type})"):
+        for sample in samples:
             audio_array = sample["audio_array"]
             sampling_rate = sample["sampling_rate"]
             
