@@ -1,7 +1,8 @@
 import torchaudio
 from omnilingual_asr.models.inference.pipeline import ASRInferencePipeline
 
-pipeline = ASRInferencePipeline(model_card="omniASR_CTC_7B", device="cpu")
+#pipeline = ASRInferencePipeline(model_card="omniASR_CTC_7B", device="cpu")
+pipeline = ASRInferencePipeline(model_card="omniASR_LLM_7B", device="cpu")
 
 # Load MP3 with torchaudio and resample to 16kHz
 waveform, sample_rate = torchaudio.load("../../release-v2/audio/inaguracio2011.mp3")
