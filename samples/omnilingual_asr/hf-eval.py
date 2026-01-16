@@ -5,7 +5,7 @@ Evaluates Word Error Rate on FLEURS dataset for Catalan and English.
 Supports: Omnilingual ASR and OpenAI Whisper models.
 
 Usage:
-    python evaluate_wer.py whisper-small whisper-large-v3 --num_samples 100
+    python evaluate_wer.py whisper-small whisper-large-v3 --num_samples 500
     python evaluate_wer.py omniASR_CTC_300M omniASR_CTC_1B --device cuda
     python evaluate_wer.py whisper-small omniASR_CTC_300M --output results.csv
     python evaluate_wer.py --list-models
@@ -43,12 +43,12 @@ LANGUAGE_CONFIG = {
         "whisper_lang": "catalan",
         "fleurs_locale": "ca_es",
     },
-    "en": {
-        "name": "English",
-        "omni_lang": "eng_Latn",
-        "whisper_lang": "english",
-        "fleurs_locale": "en_us",
-    },
+#    "en": {
+#        "name": "English",
+#        "omni_lang": "eng_Latn",
+#        "whisper_lang": "english",
+#        "fleurs_locale": "en_us",
+#    },
 }
 
 # Model configurations
@@ -72,6 +72,7 @@ WHISPER_MODELS = [
     "whisper-large-v2",
     "whisper-large-v3",
     "whisper-large-v3-turbo",
+    "projecte-aina/whisper-large-v3-ca-3catparla",
 ]
 
 ALL_MODELS = OMNILINGUAL_MODELS + WHISPER_MODELS
@@ -104,7 +105,10 @@ class WhisperWrapper:
         from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
         
         # Map short names to HuggingFace model IDs
-        model_id = f"openai/{model_name.replace('whisper-', 'whisper-')}"
+        if 'aina' not in model_name:
+          model_id = f"openai/{model_name.replace('whisper-', 'whisper-')}"
+        else:
+          model_id = model_name
         
         self.device = device
         torch_dtype = torch.float16 if device == "cuda" else torch.float32
@@ -388,7 +392,7 @@ def main():
             print("Use --list-models to see all options")
             return
     
-    languages = ["ca", "en"]  # Always evaluate both
+    languages = ["ca"]  # Always evaluate both
     
     print(f"ASR Model WER Evaluation")
     print(f"Models: {', '.join(args.models)}")
