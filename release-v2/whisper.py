@@ -7,6 +7,7 @@ from jiwer import wer
 from transformers.models.whisper.english_normalizer import EnglishTextNormalizer
 import ctranslate2
 from faster_whisper import WhisperModel
+import numpy as np
 
 # ------------------------
 # Parse CLI arguments
@@ -27,10 +28,17 @@ parser.add_argument(
     default="small",
     help="Whisper model path or size (e.g., tiny, base, small, medium, large-v3)",
 )
+parser.add_argument(
+    "--num_runs",
+    type=int,
+    default=10,
+    help="Number of times to run each compute type for statistical analysis.",
+)
 args = parser.parse_args()
 
 model_path = args.model_path
-devices = ["cpu", "cuda"]
+num_runs = args.num_runs
+devices = ["cpu"]
 
 # ------------------------
 # Load normalizer
@@ -62,6 +70,7 @@ for i, sample in enumerate(dataset_stream):
 
 print(f"Buffered {len(samples)} audio samples")
 print(f"Model: {model_path}")
+print(f"Number of runs per compute type: {num_runs}")
 print("=" * 70)
 
 # ------------------------
@@ -78,82 +87,116 @@ for device in devices:
     print(f"Supported compute types: {sorted(supported_compute_types)}")
 
     for compute_type in sorted(supported_compute_types):
-        print(f"\nTesting compute_type {compute_type}")
+        print(f"\nTesting compute_type: {compute_type} ({num_runs} runs)")
 
-        # Load model with current device and compute type
-        model = WhisperModel(model_path, device=device, compute_type=compute_type)
-
-        all_transcriptions = []
-        all_references = []
+        # Store metrics for each run
+        run_wers = []
+        run_times = []
+        run_rtfs = []
+        run_speeds = []
         total_audio_duration = 0.0
 
-        start_time = time.time()
+        for run_idx in range(num_runs):
+            # Load model with current device and compute type
+            model = WhisperModel(model_path, device=device, compute_type=compute_type)
 
-        # Iterate over the pre-fetched samples and run inference
-        for sample in samples:
-            audio_array = sample["audio_array"]
-            sampling_rate = sample["sampling_rate"]
+            all_transcriptions = []
+            all_references = []
+            run_audio_duration = 0.0
 
-            # Calculate audio duration
-            audio_duration = len(audio_array) / sampling_rate
-            total_audio_duration += audio_duration
+            start_time = time.time()
 
-            # Transcribe
-            segments, info = model.transcribe(audio_array, language="en")
-            transcription = "".join([segment.text for segment in segments])
+            # Iterate over the pre-fetched samples and run inference
+            for sample in samples:
+                audio_array = sample["audio_array"]
+                sampling_rate = sample["sampling_rate"]
 
-            all_transcriptions.append(transcription)
-            all_references.append(sample["text"])
+                # Calculate audio duration
+                audio_duration = len(audio_array) / sampling_rate
+                run_audio_duration += audio_duration
 
-        end_time = time.time()
-        elapsed_time = end_time - start_time
+                # Transcribe
+                segments, info = model.transcribe(audio_array, language="en")
+                transcription = "".join([segment.text for segment in segments])
 
-        # Normalize predictions and references
-        all_transcriptions_norm = [normalizer(t) for t in all_transcriptions]
-        all_references_norm = [normalizer(r) for r in all_references]
+                all_transcriptions.append(transcription)
+                all_references.append(sample["text"])
 
-        # Compute WER
-        word_error_rate = 100 * wer(
-            hypothesis=all_transcriptions_norm, reference=all_references_norm
-        )
+            end_time = time.time()
+            elapsed_time = end_time - start_time
 
-        # Calculate real-time factor (RTF)
-        rtf = elapsed_time / total_audio_duration if total_audio_duration > 0 else 0
+            # Normalize predictions and references
+            all_transcriptions_norm = [normalizer(t) for t in all_transcriptions]
+            all_references_norm = [normalizer(r) for r in all_references]
 
-        # Store results
+            # Compute WER
+            word_error_rate = 100 * wer(
+                hypothesis=all_transcriptions_norm, reference=all_references_norm
+            )
+
+            # Calculate real-time factor (RTF)
+            rtf = elapsed_time / run_audio_duration if run_audio_duration > 0 else 0
+            speed = 1 / rtf if rtf > 0 else 0
+
+            # Store run metrics
+            run_wers.append(word_error_rate)
+            run_times.append(elapsed_time)
+            run_rtfs.append(rtf)
+            run_speeds.append(speed)
+            total_audio_duration = run_audio_duration  # Same for all runs
+
+            print(
+                f"  Run {run_idx + 1}/{num_runs}: WER: {word_error_rate:.3f}% | "
+                f"Time: {elapsed_time:.2f}s | RTF: {rtf:.4f} | Speed: {speed:.2f}x"
+            )
+
+            del model
+
+        # Calculate mean and std for all metrics
         results.append(
             {
                 "device": device,
                 "compute_type": compute_type,
-                "wer": word_error_rate,
-                "time": elapsed_time,
+                "wer_mean": np.mean(run_wers),
+                "wer_std": np.std(run_wers),
+                "time_mean": np.mean(run_times),
+                "time_std": np.std(run_times),
+                "rtf_mean": np.mean(run_rtfs),
+                "rtf_std": np.std(run_rtfs),
+                "speed_mean": np.mean(run_speeds),
+                "speed_std": np.std(run_speeds),
                 "audio_duration": total_audio_duration,
-                "rtf": rtf,
-                "speed": 1 / rtf if rtf > 0 else 0,  # x times real-time
+                "num_runs": num_runs,
             }
         )
 
+        print(f"  ──────────────────────────────────────────────────────────────")
         print(
-            f"  WER: {word_error_rate:.3f}% | Time: {elapsed_time:.2f}s | Audio: {total_audio_duration:.2f}s | RTF: {rtf:.4f} (lower=faster) | Speed: {1/rtf:.2f}x"
+            f"  Summary: WER: {np.mean(run_wers):.3f}% ± {np.std(run_wers):.3f}% | "
+            f"Time: {np.mean(run_times):.2f}s ± {np.std(run_times):.2f}s | "
+            f"Speed: {np.mean(run_speeds):.2f}x ± {np.std(run_speeds):.2f}x"
         )
-        print(f"  Sample transcription: {all_transcriptions[0][:80]}...")
-        del model
 
 # ------------------------
 # Summary table
 # ------------------------
-print("\n" + "=" * 80)
+print("\n" + "=" * 100)
 print("SUMMARY")
-print("=" * 80)
+print("=" * 100)
 print(
-    f"{'Device':<10} {'Compute Type':<15} {'WER (%)':<12} {'Time (s)':<12} {'RTF':<12} {'Speed':<12}"
+    f"{'Device':<10} {'Compute Type':<15} {'WER (%)':<20} {'Time (s)':<20} {'RTF':<20} {'Speed (x)':<20}"
 )
-print("-" * 80)
+print("-" * 100)
 for r in results:
+    wer_str = f"{r['wer_mean']:.3f} ± {r['wer_std']:.3f}"
+    time_str = f"{r['time_mean']:.2f} ± {r['time_std']:.2f}"
+    rtf_str = f"{r['rtf_mean']:.4f} ± {r['rtf_std']:.4f}"
+    speed_str = f"{r['speed_mean']:.2f} ± {r['speed_std']:.2f}"
     print(
-        f"{r['device']:<10} {r['compute_type']:<15} {r['wer']:<12.3f} {r['time']:<12.2f} {r['rtf']:<12.4f} {r['speed']:<10.2f}"
+        f"{r['device']:<10} {r['compute_type']:<15} {wer_str:<20} {time_str:<20} {rtf_str:<20} {speed_str:<20}"
     )
 
 print(f"\nTotal audio duration: {results[0]['audio_duration']:.2f} seconds")
 print(f"Number of samples: {len(samples)}")
+print(f"Number of runs per compute type: {num_runs}")
 print(f"CTranslate2 version: {ctranslate2.__version__}")
