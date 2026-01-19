@@ -31,7 +31,7 @@ parser.add_argument(
 parser.add_argument(
     "--num_runs",
     type=int,
-    default=10,
+    default=3,
     help="Number of times to run each compute type for statistical analysis.",
 )
 args = parser.parse_args()
@@ -171,29 +171,41 @@ for device in devices:
         )
 
         print(f"  ──────────────────────────────────────────────────────────────")
+        wer_cv = (np.std(run_wers) / np.mean(run_wers) * 100) if np.mean(run_wers) != 0 else 0
+        time_cv = (np.std(run_times) / np.mean(run_times) * 100) if np.mean(run_times) != 0 else 0
+        speed_cv = (np.std(run_speeds) / np.mean(run_speeds) * 100) if np.mean(run_speeds) != 0 else 0
         print(
-            f"  Summary: WER: {np.mean(run_wers):.3f}% ± {np.std(run_wers):.3f}% | "
-            f"Time: {np.mean(run_times):.2f}s ± {np.std(run_times):.2f}s | "
-            f"Speed: {np.mean(run_speeds):.2f}x ± {np.std(run_speeds):.2f}x"
+            f"  Summary: WER: {np.mean(run_wers):.3f}% ± {wer_cv:.1f}% | "
+            f"Time: {np.mean(run_times):.2f}s ± {time_cv:.1f}% | "
+            f"Speed: {np.mean(run_speeds):.2f}x ± {speed_cv:.1f}%"
         )
 
 # ------------------------
 # Summary table
 # ------------------------
-print("\n" + "=" * 100)
-print("SUMMARY")
-print("=" * 100)
+def cv_percent(mean, std):
+    """Calculate coefficient of variation as percentage."""
+    return (std / mean * 100) if mean != 0 else 0
+
+print("\n" + "=" * 110)
+print("SUMMARY (± values are std as % of mean)")
+print("=" * 110)
 print(
-    f"{'Device':<10} {'Compute Type':<15} {'WER (%)':<20} {'Time (s)':<20} {'RTF':<20} {'Speed (x)':<20}"
+    f"{'Device':<10} {'Compute Type':<15} {'WER (%)':<22} {'Time (s)':<22} {'RTF':<22} {'Speed (x)':<22}"
 )
-print("-" * 100)
+print("-" * 110)
 for r in results:
-    wer_str = f"{r['wer_mean']:.3f} ± {r['wer_std']:.3f}"
-    time_str = f"{r['time_mean']:.2f} ± {r['time_std']:.2f}"
-    rtf_str = f"{r['rtf_mean']:.4f} ± {r['rtf_std']:.4f}"
-    speed_str = f"{r['speed_mean']:.2f} ± {r['speed_std']:.2f}"
+    wer_cv = cv_percent(r['wer_mean'], r['wer_std'])
+    time_cv = cv_percent(r['time_mean'], r['time_std'])
+    rtf_cv = cv_percent(r['rtf_mean'], r['rtf_std'])
+    speed_cv = cv_percent(r['speed_mean'], r['speed_std'])
+    
+    wer_str = f"{r['wer_mean']:.3f} ± {wer_cv:.1f}%"
+    time_str = f"{r['time_mean']:.2f} ± {time_cv:.1f}%"
+    rtf_str = f"{r['rtf_mean']:.4f} ± {rtf_cv:.1f}%"
+    speed_str = f"{r['speed_mean']:.2f} ± {speed_cv:.1f}%"
     print(
-        f"{r['device']:<10} {r['compute_type']:<15} {wer_str:<20} {time_str:<20} {rtf_str:<20} {speed_str:<20}"
+        f"{r['device']:<10} {r['compute_type']:<15} {wer_str:<22} {time_str:<22} {rtf_str:<22} {speed_str:<22}"
     )
 
 print(f"\nTotal audio duration: {results[0]['audio_duration']:.2f} seconds")
