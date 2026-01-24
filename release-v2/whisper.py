@@ -18,7 +18,7 @@ parser = argparse.ArgumentParser(
 parser.add_argument(
     "--audio_numb",
     type=int,
-    default=10,
+    default=20,
     help="Specify the number of validation audio files in the dataset."
     " Set to None to retrieve all audio files.",
 )
@@ -31,13 +31,20 @@ parser.add_argument(
 parser.add_argument(
     "--num_runs",
     type=int,
-    default=3,
+    default=5,
     help="Number of times to run each compute type for statistical analysis.",
+)
+parser.add_argument(
+    "--warmup_runs",
+    type=int,
+    default=1,
+    help="Number of warm-up runs before timed runs (not included in statistics).",
 )
 args = parser.parse_args()
 
 model_path = args.model_path
 num_runs = args.num_runs
+warmup_runs = args.warmup_runs
 devices = ["cpu"]
 
 # ------------------------
@@ -70,7 +77,8 @@ for i, sample in enumerate(dataset_stream):
 
 print(f"Buffered {len(samples)} audio samples")
 print(f"Model: {model_path}")
-print(f"Number of runs per compute type: {num_runs}")
+print(f"Warm-up runs: {warmup_runs}")
+print(f"Number of timed runs per compute type: {num_runs}")
 print("=" * 70)
 
 # ------------------------
@@ -87,8 +95,27 @@ for device in devices:
     print(f"Supported compute types: {sorted(supported_compute_types)}")
 
     for compute_type in sorted(supported_compute_types):
-        print(f"\nTesting compute_type: {compute_type} ({num_runs} runs)")
+        print(f"\nTesting compute_type: {compute_type} ({warmup_runs} warm-up + {num_runs} timed runs)")
 
+        # Load model with current device and compute type
+        model = WhisperModel(model_path, device=device, compute_type=compute_type)
+
+        # ------------------------
+        # Warm-up runs
+        # ------------------------
+        for warmup_idx in range(warmup_runs):
+            warmup_start = time.time()
+            for sample in samples:
+                audio_array = sample["audio_array"]
+                segments, info = model.transcribe(audio_array, language="en")
+                # Consume the generator to ensure inference completes
+                _ = list(segments)
+            warmup_elapsed = time.time() - warmup_start
+            print(f"  Warm-up {warmup_idx + 1}/{warmup_runs}: {warmup_elapsed:.2f}s")
+
+        # ------------------------
+        # Timed runs
+        # ------------------------
         # Store metrics for each run
         run_wers = []
         run_times = []
@@ -97,9 +124,6 @@ for device in devices:
         total_audio_duration = 0.0
 
         for run_idx in range(num_runs):
-            # Load model with current device and compute type
-            model = WhisperModel(model_path, device=device, compute_type=compute_type)
-
             all_transcriptions = []
             all_references = []
             run_audio_duration = 0.0
@@ -150,7 +174,8 @@ for device in devices:
                 f"Time: {elapsed_time:.2f}s | RTF: {rtf:.4f} | Speed: {speed:.2f}x"
             )
 
-            del model
+        # Clean up model after all runs for this compute type
+        del model
 
         # Calculate mean and std for all metrics
         results.append(
@@ -167,6 +192,7 @@ for device in devices:
                 "speed_std": np.std(run_speeds),
                 "audio_duration": total_audio_duration,
                 "num_runs": num_runs,
+                "warmup_runs": warmup_runs,
             }
         )
 
@@ -210,5 +236,6 @@ for r in results:
 
 print(f"\nTotal audio duration: {results[0]['audio_duration']:.2f} seconds")
 print(f"Number of samples: {len(samples)}")
-print(f"Number of runs per compute type: {num_runs}")
+print(f"Warm-up runs per compute type: {warmup_runs}")
+print(f"Timed runs per compute type: {num_runs}")
 print(f"CTranslate2 version: {ctranslate2.__version__}")
