@@ -31,7 +31,7 @@ parser.add_argument(
 parser.add_argument(
     "--num_runs",
     type=int,
-    default=5,
+    default=3,
     help="Number of times to run each compute type for statistical analysis.",
 )
 parser.add_argument(
