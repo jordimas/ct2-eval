@@ -45,7 +45,7 @@ args = parser.parse_args()
 model_path = args.model_path
 num_runs = args.num_runs
 warmup_runs = args.warmup_runs
-devices = ["cpu"]
+devices = ["cpu", "cuda"]
 
 # ------------------------
 # Load normalizer
