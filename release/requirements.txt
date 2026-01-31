@@ -5,3 +5,4 @@ jiwer
 faster_whisper
 torchcodec
 torch
+sacrebleu
