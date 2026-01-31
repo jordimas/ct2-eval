@@ -1,0 +1,6 @@
+ctranslate2
+transformers
+datasets
+jiwer
+faster_whisper
+torchcodec
