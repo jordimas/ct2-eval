@@ -40,7 +40,13 @@ parser.add_argument(
     default=1,
     help="Number of warm-up runs before timed runs (not included in statistics).",
 )
+
+parser.add_argument(
+    "--no_verbose", action="store_true", dest="no_verbose", help="Usa verbose output."
+)
 args = parser.parse_args()
+
+verbose = not args.no_verbose
 
 model_path = args.model_path
 num_runs = args.num_runs
@@ -56,13 +62,15 @@ with open(os.path.join(os.path.dirname(__file__), "normalizer.json"), "r") as f:
 # ------------------------
 # Load dataset with streaming and pre-fetch samples
 # ------------------------
-print("Loading dataset with streaming...")
+if verbose:
+    print("Loading dataset with streaming...")
 dataset_stream = load_dataset(
     "librispeech_asr", "clean", split="validation", streaming=True
 )
 
 # Pre-fetch and buffer samples to avoid streaming overhead during timing
-print("Pre-fetching audio samples...")
+if verbose:
+    print("Pre-fetching audio samples...")
 samples = []
 for i, sample in enumerate(dataset_stream):
     samples.append(
@@ -75,11 +83,12 @@ for i, sample in enumerate(dataset_stream):
     if args.audio_numb and i + 1 >= args.audio_numb:
         break
 
-print(f"Buffered {len(samples)} audio samples")
-print(f"Model: {model_path}")
-print(f"Warm-up runs: {warmup_runs}")
-print(f"Number of timed runs per compute type: {num_runs}")
-print("=" * 70)
+if verbose:
+    print(f"Buffered {len(samples)} audio samples")
+    print(f"Model: {model_path}")
+    print(f"Warm-up runs: {warmup_runs}")
+    print(f"Number of timed runs per compute type: {num_runs}")
+    print("=" * 70)
 
 # ------------------------
 # Benchmark for each device and compute type
@@ -87,15 +96,21 @@ print("=" * 70)
 results = []
 
 for device in devices:
-    print(f"DEVICE: {device.upper()}")
-    print(f"{'='*70}")
+    if verbose:
+        print(f"DEVICE: {device.upper()}")
+        print(f"{'='*70}")
 
     # Get supported compute types for this device
     supported_compute_types = ctranslate2.get_supported_compute_types(device)
-    print(f"Supported compute types: {sorted(supported_compute_types)}")
+
+    if verbose:
+        print(f"Supported compute types: {sorted(supported_compute_types)}")
 
     for compute_type in sorted(supported_compute_types):
-        print(f"\nTesting compute_type: {compute_type} ({warmup_runs} warm-up + {num_runs} timed runs)")
+        if verbose:
+            print(
+                f"\nTesting compute_type: {compute_type} ({warmup_runs} warm-up + {num_runs} timed runs)"
+            )
 
         # Load model with current device and compute type
         model = WhisperModel(model_path, device=device, compute_type=compute_type)
@@ -111,7 +126,10 @@ for device in devices:
                 # Consume the generator to ensure inference completes
                 _ = list(segments)
             warmup_elapsed = time.time() - warmup_start
-            print(f"  Warm-up {warmup_idx + 1}/{warmup_runs}: {warmup_elapsed:.2f}s")
+            if verbose:
+                print(
+                    f"  Warm-up {warmup_idx + 1}/{warmup_runs}: {warmup_elapsed:.2f}s"
+                )
 
         # ------------------------
         # Timed runs
@@ -169,10 +187,12 @@ for device in devices:
             run_speeds.append(speed)
             total_audio_duration = run_audio_duration  # Same for all runs
 
-            print(
-                f"  Run {run_idx + 1}/{num_runs}: WER: {word_error_rate:.3f}% | "
-                f"Time: {elapsed_time:.2f}s | RTF: {rtf:.4f} | Speed: {speed:.2f}x"
-            )
+            if verbose:
+
+                print(
+                    f"  Run {run_idx + 1}/{num_runs}: WER: {word_error_rate:.3f}% | "
+                    f"Time: {elapsed_time:.2f}s | RTF: {rtf:.4f} | Speed: {speed:.2f}x"
+                )
 
         # Clean up model after all runs for this compute type
         del model
@@ -196,15 +216,29 @@ for device in devices:
             }
         )
 
-        print(f"  ──────────────────────────────────────────────────────────────")
-        wer_cv = (np.std(run_wers) / np.mean(run_wers) * 100) if np.mean(run_wers) != 0 else 0
-        time_cv = (np.std(run_times) / np.mean(run_times) * 100) if np.mean(run_times) != 0 else 0
-        speed_cv = (np.std(run_speeds) / np.mean(run_speeds) * 100) if np.mean(run_speeds) != 0 else 0
-        print(
-            f"  Summary: WER: {np.mean(run_wers):.3f}% ± {wer_cv:.1f}% | "
-            f"Time: {np.mean(run_times):.2f}s ± {time_cv:.1f}% | "
-            f"Speed: {np.mean(run_speeds):.2f}x ± {speed_cv:.1f}%"
+        wer_cv = (
+            (np.std(run_wers) / np.mean(run_wers) * 100)
+            if np.mean(run_wers) != 0
+            else 0
         )
+        time_cv = (
+            (np.std(run_times) / np.mean(run_times) * 100)
+            if np.mean(run_times) != 0
+            else 0
+        )
+        speed_cv = (
+            (np.std(run_speeds) / np.mean(run_speeds) * 100)
+            if np.mean(run_speeds) != 0
+            else 0
+        )
+        if verbose:
+            print(f"  ──────────────────────────────────────────────────────────────")
+            print(
+                f"  Summary: WER: {np.mean(run_wers):.3f}% ± {wer_cv:.1f}% | "
+                f"Time: {np.mean(run_times):.2f}s ± {time_cv:.1f}% | "
+                f"Speed: {np.mean(run_speeds):.2f}x ± {speed_cv:.1f}%"
+            )
+
 
 # ------------------------
 # Summary table
@@ -212,6 +246,7 @@ for device in devices:
 def cv_percent(mean, std):
     """Calculate coefficient of variation as percentage."""
     return (std / mean * 100) if mean != 0 else 0
+
 
 print("\n" + "=" * 110)
 print("SUMMARY (± values are std as % of mean)")
@@ -221,11 +256,11 @@ print(
 )
 print("-" * 110)
 for r in results:
-    wer_cv = cv_percent(r['wer_mean'], r['wer_std'])
-    time_cv = cv_percent(r['time_mean'], r['time_std'])
-    rtf_cv = cv_percent(r['rtf_mean'], r['rtf_std'])
-    speed_cv = cv_percent(r['speed_mean'], r['speed_std'])
-    
+    wer_cv = cv_percent(r["wer_mean"], r["wer_std"])
+    time_cv = cv_percent(r["time_mean"], r["time_std"])
+    rtf_cv = cv_percent(r["rtf_mean"], r["rtf_std"])
+    speed_cv = cv_percent(r["speed_mean"], r["speed_std"])
+
     wer_str = f"{r['wer_mean']:.3f} ± {wer_cv:.1f}%"
     time_str = f"{r['time_mean']:.2f} ± {time_cv:.1f}%"
     rtf_str = f"{r['rtf_mean']:.4f} ± {rtf_cv:.1f}%"

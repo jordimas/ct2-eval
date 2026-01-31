@@ -35,6 +35,7 @@ bleu = BLEU()
 # ------------------------
 total_tokens = sum(len(tok.encode(sentence)) for sentence in english_sentences)
 
+
 # ------------------------
 # Translation function using Gemma 3
 # ------------------------
