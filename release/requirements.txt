@@ -4,3 +4,4 @@ datasets
 jiwer
 faster_whisper
 torchcodec
+torch
