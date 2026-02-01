@@ -9,6 +9,9 @@ import ctranslate2
 from faster_whisper import WhisperModel
 import numpy as np
 
+from datasets import disable_progress_bars
+disable_progress_bars()
+
 # ------------------------
 # Parse CLI arguments
 # ------------------------
