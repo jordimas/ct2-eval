@@ -274,5 +274,5 @@ for r in results:
     )
 
 print(
-    f"\nTotal audio duration: {results[0]['audio_duration']:.2f} seconds | Number of samples: {len(samples)} | Warm-up runs per compute type: {warmup_runs} | Timed runs per compute type: {num_runs}|CTranslate2 version: {ctranslate2.__version__}"
+    f"\nTotal audio duration: {results[0]['audio_duration']:.2f} seconds | Number of samples: {len(samples)} | Warm-up runs per compute type: {warmup_runs} | Timed runs per compute type: {num_runs}| CTranslate2 version: {ctranslate2.__version__}"
 )
