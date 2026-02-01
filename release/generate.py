@@ -1,29 +1,79 @@
+import argparse
+import time
 from transformers import AutoTokenizer
 import ctranslate2
-import time
 from sacrebleu.metrics import BLEU
+import numpy as np
+
+# ------------------------
+# Parse CLI arguments
+# ------------------------
+parser = argparse.ArgumentParser(
+    description="BLEU benchmark for Gemma 3 translation across devices"
+)
+parser.add_argument(
+    "--model_path",
+    type=str,
+    default="gemma-3-270m",
+    help="Gemma model path or ID (e.g., gemma-3-270m)",
+)
+parser.add_argument(
+    "--num_sentences",
+    type=int,
+    default=50,
+    help="Number of sentences to translate from FLORES-200 dataset.",
+)
+parser.add_argument(
+    "--num_runs",
+    type=int,
+    default=3,
+    help="Number of times to run each device for statistical analysis.",
+)
+parser.add_argument(
+    "--warmup_runs",
+    type=int,
+    default=1,
+    help="Number of warm-up runs before timed runs (not included in statistics).",
+)
+parser.add_argument(
+    "--no_verbose",
+    action="store_true",
+    dest="no_verbose",
+    help="Disable verbose output.",
+)
+args = parser.parse_args()
+
+verbose = not args.no_verbose
+model_id = args.model_path
+num_runs = args.num_runs
+warmup_runs = args.warmup_runs
+num_sentences = args.num_sentences
+devices = ["cpu", "cuda"]
 
 # ------------------------
 # Load Gemma 3 tokenizer
 # ------------------------
-model_id = "gemma-3-270m"
 tok = AutoTokenizer.from_pretrained(f"google/{model_id}")
 
 # ------------------------
-# Read FLORES-200 files (limited to 50 sentences)
+# Read FLORES-200 files (limited to num_sentences)
 # ------------------------
 with open("flores200.eng", "r", encoding="utf-8") as f:
-    english_sentences = [line.strip() for line in f if line.strip()][:50]
+    english_sentences = [line.strip() for line in f if line.strip()][:num_sentences]
 with open("flores200.cat", "r", encoding="utf-8") as f:
-    catalan_references = [line.strip() for line in f if line.strip()][:50]
+    catalan_references = [line.strip() for line in f if line.strip()][:num_sentences]
 
 assert len(english_sentences) == len(
     catalan_references
 ), f"Mismatch: {len(english_sentences)} English sentences vs {len(catalan_references)} Catalan references"
 
-print(f"Loaded {len(english_sentences)} sentence pairs")
-print(f"CTranslate2 version: {ctranslate2.__version__}")
-print("=" * 60)
+if verbose:
+    print(f"Loaded {len(english_sentences)} sentence pairs")
+    print(f"Model: {model_id}")
+    print(f"Warm-up runs: {warmup_runs}")
+    print(f"Number of timed runs per device: {num_runs}")
+    print(f"CTranslate2 version: {ctranslate2.__version__}")
+    print("=" * 70)
 
 # ------------------------
 # Initialize BLEU scorer
@@ -52,75 +102,134 @@ def translate_with_gemma(gen, english_text):
 
 
 # ------------------------
-# Benchmark function for a specific device
+# Benchmark for each device
 # ------------------------
-def run_benchmark(device):
-    print(f"Running {model_id} translation benchmark on {device.upper()}")
-    print("=" * 60)
+results = []
+
+for device in devices:
+    # Check if CUDA is available
+    if device == "cuda" and ctranslate2.get_cuda_device_count() == 0:
+        if verbose:
+            print("\n" + "=" * 70)
+            print("CUDA not available - skipping GPU benchmark")
+            print("=" * 70)
+        continue
+
+    if verbose:
+        print(f"\nDEVICE: {device.upper()}")
+        print("=" * 70)
+        print(
+            f"Testing device: {device} ({warmup_runs} warm-up + {num_runs} timed runs)"
+        )
 
     # Load model for this device
     gen = ctranslate2.Generator(f"{model_id}.ct2", device=device)
 
-    # Translate all sentences
-    start_time = time.time()
-    translations = [
-        translate_with_gemma(gen, sentence) for sentence in english_sentences
-    ]
-    end_time = time.time()
-    elapsed_time = end_time - start_time
+    # ------------------------
+    # Warm-up runs
+    # ------------------------
+    for warmup_idx in range(warmup_runs):
+        warmup_start = time.time()
+        for sentence in english_sentences:
+            _ = translate_with_gemma(gen, sentence)
+        warmup_elapsed = time.time() - warmup_start
+        if verbose:
+            print(f"  Warm-up {warmup_idx + 1}/{warmup_runs}: {warmup_elapsed:.2f}s")
 
-    # Compute BLEU score
-    bleu_score = bleu.corpus_score(translations, [catalan_references])
+    # ------------------------
+    # Timed runs
+    # ------------------------
+    run_bleus = []
+    run_times = []
+    run_tokens_per_sec = []
 
-    print(f"BLEU: {bleu_score.score:.2f}")
-    print(f"Time: {elapsed_time:.2f}s")
-    print(f"Tokens: {total_tokens}")
-    print(f"Tokens/sec: {total_tokens / elapsed_time:.2f}")
+    for run_idx in range(num_runs):
+        start_time = time.time()
+        translations = [
+            translate_with_gemma(gen, sentence) for sentence in english_sentences
+        ]
+        end_time = time.time()
+        elapsed_time = end_time - start_time
 
-    print(f"\nSample translations:")
-    for i in range(min(3, len(translations))):
-        print(f"  EN: {english_sentences[i][:60]}...")
-        print(f"  CA: {translations[i][:60]}...")
-        print()
+        # Compute BLEU score
+        bleu_score = bleu.corpus_score(translations, [catalan_references])
+        tokens_per_sec = total_tokens / elapsed_time
 
-    return {
-        "device": device,
-        "bleu_score": bleu_score.score,
-        "elapsed_time": elapsed_time,
-        "tokens_per_sec": total_tokens / elapsed_time,
-    }
+        # Store run metrics
+        run_bleus.append(bleu_score.score)
+        run_times.append(elapsed_time)
+        run_tokens_per_sec.append(tokens_per_sec)
 
+        if verbose:
+            print(
+                f"  Run {run_idx + 1}/{num_runs}: BLEU: {bleu_score.score:.2f} | "
+                f"Time: {elapsed_time:.2f}s | Tokens/sec: {tokens_per_sec:.2f}"
+            )
 
-# ------------------------
-# Run benchmarks on both devices
-# ------------------------
-results = []
+    # Clean up model after all runs for this device
+    del gen
 
-# CPU benchmark
-results.append(run_benchmark("cpu"))
-
-# CUDA benchmark (check if available)
-if ctranslate2.get_cuda_device_count() > 0:
-    results.append(run_benchmark("cuda"))
-else:
-    print("\n" + "=" * 60)
-    print("CUDA not available - skipping GPU benchmark")
-    print("=" * 60)
-
-# ------------------------
-# Summary
-# ------------------------
-print("\n" + "=" * 60)
-print("SUMMARY")
-print("=" * 60)
-print(f"Sentences: {len(english_sentences)}")
-print(f"Total Tokens: {total_tokens}")
-print(f"CTranslate2 version: {ctranslate2.__version__}")
-print()
-
-print(f"{'Device':<10} {'BLEU':<10} {'Time (s)':<12} {'Tokens/sec':<12}")
-print("-" * 44)
-for r in results:
-    print(
-        f"{r['device'].upper():<10} {r['bleu_score']:<10.2f} {r['elapsed_time']:<12.2f} {r['tokens_per_sec']:<12.2f}"
+    # Calculate mean and std for all metrics
+    results.append(
+        {
+            "device": device,
+            "bleu_mean": np.mean(run_bleus),
+            "bleu_std": np.std(run_bleus),
+            "time_mean": np.mean(run_times),
+            "time_std": np.std(run_times),
+            "tokens_per_sec_mean": np.mean(run_tokens_per_sec),
+            "tokens_per_sec_std": np.std(run_tokens_per_sec),
+            "num_runs": num_runs,
+            "warmup_runs": warmup_runs,
+        }
     )
+
+    bleu_cv = (
+        (np.std(run_bleus) / np.mean(run_bleus) * 100) if np.mean(run_bleus) != 0 else 0
+    )
+    time_cv = (
+        (np.std(run_times) / np.mean(run_times) * 100) if np.mean(run_times) != 0 else 0
+    )
+    tps_cv = (
+        (np.std(run_tokens_per_sec) / np.mean(run_tokens_per_sec) * 100)
+        if np.mean(run_tokens_per_sec) != 0
+        else 0
+    )
+
+    if verbose:
+        print(f"  ──────────────────────────────────────────────────────────────")
+        print(
+            f"  Summary: BLEU: {np.mean(run_bleus):.2f} ± {bleu_cv:.1f}% | "
+            f"Time: {np.mean(run_times):.2f}s ± {time_cv:.1f}% | "
+            f"Tokens/sec: {np.mean(run_tokens_per_sec):.2f} ± {tps_cv:.1f}%"
+        )
+
+
+# ------------------------
+# Summary table
+# ------------------------
+def cv_percent(mean, std):
+    """Calculate coefficient of variation as percentage."""
+    return (std / mean * 100) if mean != 0 else 0
+
+
+print("\n" + "=" * 90)
+print("SUMMARY (± values are std as % of mean)")
+print("=" * 90)
+print(f"{'Device':<10} {'BLEU':<22} {'Time (s)':<22} {'Tokens/sec':<22}")
+print("-" * 90)
+for r in results:
+    bleu_cv = cv_percent(r["bleu_mean"], r["bleu_std"])
+    time_cv = cv_percent(r["time_mean"], r["time_std"])
+    tps_cv = cv_percent(r["tokens_per_sec_mean"], r["tokens_per_sec_std"])
+
+    bleu_str = f"{r['bleu_mean']:.2f} ± {bleu_cv:.1f}%"
+    time_str = f"{r['time_mean']:.2f} ± {time_cv:.1f}%"
+    tps_str = f"{r['tokens_per_sec_mean']:.2f} ± {tps_cv:.1f}%"
+    print(f"{r['device'].upper():<10} {bleu_str:<22} {time_str:<22} {tps_str:<22}")
+
+print(
+    f"\nSentences: {len(english_sentences)} | Total tokens: {total_tokens} | "
+    f"Warm-up runs per device: {warmup_runs} | Timed runs per device: {num_runs} | "
+    f"CTranslate2 version: {ctranslate2.__version__}"
+)
