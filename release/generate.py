@@ -145,7 +145,9 @@ for device in devices:
                 _ = translate_with_gemma(gen, sentence)
             warmup_elapsed = time.time() - warmup_start
             if verbose:
-                print(f"  Warm-up {warmup_idx + 1}/{warmup_runs}: {warmup_elapsed:.2f}s")
+                print(
+                    f"  Warm-up {warmup_idx + 1}/{warmup_runs}: {warmup_elapsed:.2f}s"
+                )
 
         # ------------------------
         # Timed runs
@@ -197,10 +199,14 @@ for device in devices:
         )
 
         bleu_cv = (
-            (np.std(run_bleus) / np.mean(run_bleus) * 100) if np.mean(run_bleus) != 0 else 0
+            (np.std(run_bleus) / np.mean(run_bleus) * 100)
+            if np.mean(run_bleus) != 0
+            else 0
         )
         time_cv = (
-            (np.std(run_times) / np.mean(run_times) * 100) if np.mean(run_times) != 0 else 0
+            (np.std(run_times) / np.mean(run_times) * 100)
+            if np.mean(run_times) != 0
+            else 0
         )
         tps_cv = (
             (np.std(run_tokens_per_sec) / np.mean(run_tokens_per_sec) * 100)
@@ -228,7 +234,9 @@ def cv_percent(mean, std):
 print("\n" + "=" * 110)
 print("SUMMARY (± values are std as % of mean)")
 print("=" * 110)
-print(f"{'Device':<10} {'Compute Type':<15} {'BLEU':<22} {'Time (s)':<22} {'Tokens/sec':<22}")
+print(
+    f"{'Device':<10} {'Compute Type':<15} {'BLEU':<22} {'Time (s)':<22} {'Tokens/sec':<22}"
+)
 print("-" * 110)
 for r in results:
     bleu_cv = cv_percent(r["bleu_mean"], r["bleu_std"])
@@ -238,7 +246,9 @@ for r in results:
     bleu_str = f"{r['bleu_mean']:.2f} ± {bleu_cv:.1f}%"
     time_str = f"{r['time_mean']:.2f} ± {time_cv:.1f}%"
     tps_str = f"{r['tokens_per_sec_mean']:.2f} ± {tps_cv:.1f}%"
-    print(f"{r['device']:<10} {r['compute_type']:<15} {bleu_str:<22} {time_str:<22} {tps_str:<22}")
+    print(
+        f"{r['device']:<10} {r['compute_type']:<15} {bleu_str:<22} {time_str:<22} {tps_str:<22}"
+    )
 
 print(
     f"\nSentences: {len(english_sentences)} | Total tokens: {total_tokens} | "
