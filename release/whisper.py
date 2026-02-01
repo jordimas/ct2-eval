@@ -10,6 +10,7 @@ from faster_whisper import WhisperModel
 import numpy as np
 
 from datasets import disable_progress_bars
+
 disable_progress_bars()
 
 # ------------------------
@@ -272,8 +273,7 @@ for r in results:
         f"{r['device']:<10} {r['compute_type']:<15} {wer_str:<22} {time_str:<22} {rtf_str:<22} {speed_str:<22}"
     )
 
-print(f"\nTotal audio duration: {results[0]['audio_duration']:.2f} seconds")
-print(f"Number of samples: {len(samples)}")
-print(f"Warm-up runs per compute type: {warmup_runs}")
-print(f"Timed runs per compute type: {num_runs}")
+print(
+    f"\nTotal audio duration: {results[0]['audio_duration']:.2f} seconds | Number of samples: {len(samples)} | Warm-up runs per compute type: {warmup_runs} | Timed runs per compute type: {num_runs}"
+)
 print(f"CTranslate2 version: {ctranslate2.__version__}")
