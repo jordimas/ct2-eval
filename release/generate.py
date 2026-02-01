@@ -20,7 +20,7 @@ parser.add_argument(
 parser.add_argument(
     "--num_sentences",
     type=int,
-    default=10,
+    default=5,
     help="Number of sentences to translate from FLORES-200 dataset.",
 )
 parser.add_argument(
