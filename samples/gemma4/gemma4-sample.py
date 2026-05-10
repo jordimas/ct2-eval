@@ -14,5 +14,5 @@ gen = ctranslate2.Generator(args.model)
 prompt = "<start_of_turn>user\nGenerate a 20 word text talking about George Orwell.<end_of_turn>\n<start_of_turn>model\n"
 tokens = tok.convert_ids_to_tokens(tok.encode(prompt))
 
-res = gen.generate_batch([tokens], max_length=2048, sampling_temperature=0.1, sampling_topk=1, sampling_topp=0.1, include_prompt_in_result=False)
+res = gen.generate_batch([tokens], max_length=128, sampling_temperature=0.1, sampling_topk=1, sampling_topp=0.1, include_prompt_in_result=False)
 print(tok.convert_tokens_to_string(res[0].sequences[0]))
