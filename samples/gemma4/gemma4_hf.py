@@ -2,7 +2,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
 
 # Load tokenizer and model from Hugging Face
-model_name = "google/gemma-3-4b-it"
+model_name = "google/gemma-4-31B"
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 model = AutoModelForCausalLM.from_pretrained(model_name)
 
