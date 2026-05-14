@@ -1,4 +1,7 @@
+import time
 from transformers import AutoProcessor, AutoModelForCausalLM
+
+total_start = time.time()
 
 model_name = "google/gemma-4-31B-it"
 
@@ -34,3 +37,4 @@ output_ids = model.generate(
 
 response = processor.decode(output_ids[0][input_len:], skip_special_tokens=False)
 print(response)
+print(f"\nTotal execution time: {time.time() - total_start:.4f} seconds")

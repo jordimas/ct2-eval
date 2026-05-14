@@ -1,5 +1,8 @@
+import time
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
+
+total_start = time.time()
 
 # Load tokenizer and model from Hugging Face
 model_name = "google/gemma-3-4b-it"
@@ -31,3 +34,4 @@ output_ids = model.generate(
 # Decode generated tokens to text
 generated_text = tokenizer.decode(output_ids[0][input_ids.shape[1]:], skip_special_tokens=True)
 print(generated_text)
+print(f"\nTotal execution time: {time.time() - total_start:.4f} seconds")
