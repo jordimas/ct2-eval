@@ -1,6 +1,5 @@
 import os
 os.environ["OMP_NUM_THREADS"] = str(os.cpu_count() // 2)
-os.environ["CUDA_VISIBLE_DEVICES"] = ""
 import time
 import argparse
 import statistics
@@ -48,7 +47,7 @@ def bench_ctranslate2(device, quant, batch_size, corpus):
             ct2_model_dir, quantization=quant if quant else None
         )
     generator = ctranslate2.Generator(ct2_model_dir, device=device,
-                                      compute_type="int8",
+                                      compute_type=quant if quant else "int8",
                                       inter_threads=1,
                                       intra_threads=os.cpu_count() // 2)
 
@@ -180,5 +179,10 @@ if __name__ == "__main__":
     if args.backend in ("llama", "all"):
         results += bench_llama_cpp(args.batch_size)
 
-    print("\n" + "=" * 40 + " RESULTS " + "=" * 40)
-    print("\n".join(results))
+    output = "\n" + "=" * 40 + " RESULTS " + "=" * 40 + "\n" + "\n".join(results)
+    print(output)
+
+    report_file = f"report_{args.device}.txt"
+    with open(report_file, "w") as f:
+        f.write(output)
+    print(f"\nReport written to {report_file}")
