@@ -80,7 +80,6 @@ def bench_ctranslate2(device, quant, batch_size, corpus):
             throughput = total_tokens / elapsed
             latency = elapsed / batch_size
             tps_list.append(throughput)
-            lines.append(f"  [{i+1:2d}] {total_tokens:4d} tokens in {elapsed:.2f}s, {latency:.3f} s/req → {throughput:.1f} tok/s")
         lines += summarize(tps_list, tag)
 
     return lines
@@ -118,7 +117,6 @@ def bench_vllm(device, batch_size):
             throughput = total_tokens / elapsed
             latency = elapsed / batch_size
             tps_list.append(throughput)
-            lines.append(f"  [{i+1:2d}] {total_tokens:4d} tokens in {elapsed:.2f}s, {latency:.3f} s/req → {throughput:.1f} tok/s")
         lines += summarize(tps_list, tag)
 
     return lines
@@ -156,7 +154,6 @@ def bench_llama_cpp(batch_size):
             throughput = total_tokens / elapsed
             latency = elapsed / batch_size
             tps_list.append(throughput)
-            lines.append(f"  [{i+1:2d}] {total_tokens:4d} tokens in {elapsed:.2f}s, {latency:.3f} s/req → {throughput:.1f} tok/s")
         lines += summarize(tps_list, tag)
 
     return lines
