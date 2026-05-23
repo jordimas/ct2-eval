@@ -1,5 +1,7 @@
 import os
-os.environ["OMP_NUM_THREADS"] = str(os.cpu_count() // 2)
+# 4 threads is the bandwidth sweet spot for int8 decode on this i7-11800H.
+# More threads saturate DDR4 bandwidth and cause thermal throttling with no gain.
+os.environ["OMP_NUM_THREADS"] = "4"
 import time
 import argparse
 import statistics
@@ -49,7 +51,7 @@ def bench_ctranslate2(device, quant, batch_size, corpus):
     generator = ctranslate2.Generator(ct2_model_dir, device=device,
                                       compute_type=quant if quant else "int8",
                                       inter_threads=1,
-                                      intra_threads=os.cpu_count() // 2)
+                                      intra_threads=4)
 
     def tokenize(question):
         prompt = build_prompt(tokenizer, question)
@@ -122,6 +124,154 @@ def bench_vllm(device, batch_size):
     return lines
 
 
+def bench_sglang(device, batch_size):
+    import sglang as sgl
+
+    tokenizer = transformers.AutoTokenizer.from_pretrained(MODEL_ID)
+    dtype = "float32" if device == "cpu" else "float16"
+    engine = sgl.Engine(model_path=MODEL_ID, context_length=512, dtype=dtype)
+    sampling_params = {"max_new_tokens": MAX_TOKENS, "temperature": 0}
+
+    warmup_prompt = build_prompt(tokenizer, load_corpus(CORPUS_SHORT)[0])
+    for _ in range(WARMUP):
+        engine.generate([warmup_prompt] * batch_size, sampling_params)
+
+    label = f"SGLang ({device}, {dtype}, batch={batch_size}, greedy)"
+    lines = [f"\n=== {label} ==="]
+    tps_short, tps_long = [], []
+
+    short_corpus = load_corpus(CORPUS_SHORT)
+    long_corpus = load_corpus(CORPUS_LONG)
+
+    for tag, questions, tps_list in [("short", short_corpus, tps_short), ("long", long_corpus, tps_long)]:
+        lines.append(f"\n  -- {tag} questions --")
+        for question in questions:
+            prompt = build_prompt(tokenizer, question)
+            batch = [prompt] * batch_size
+            t0 = time.perf_counter()
+            outputs = engine.generate(batch, sampling_params)
+            elapsed = time.perf_counter() - t0
+            total_tokens = sum(o["meta_info"]["completion_tokens"] for o in outputs)
+            throughput = total_tokens / elapsed
+            tps_list.append(throughput)
+        lines += summarize(tps_list, tag)
+
+    return lines
+
+
+def bench_openvino(device, batch_size, quant="int8"):
+    from optimum.intel.openvino import OVModelForCausalLM
+    from optimum.intel import OVWeightQuantizationConfig
+
+    ov_model_dir = f"{MODEL_ID}-ov-{quant}"
+    tokenizer = transformers.AutoTokenizer.from_pretrained(MODEL_ID)
+
+    if not os.path.isdir(ov_model_dir):
+        if quant == "int8":
+            qconfig = OVWeightQuantizationConfig(bits=8)
+        elif quant == "int4":
+            qconfig = OVWeightQuantizationConfig(bits=4)
+        else:
+            qconfig = None
+        model = OVModelForCausalLM.from_pretrained(
+            MODEL_ID, export=True, quantization_config=qconfig
+        )
+        model.save_pretrained(ov_model_dir)
+        tokenizer.save_pretrained(ov_model_dir)
+    else:
+        model = OVModelForCausalLM.from_pretrained(ov_model_dir)
+
+    warmup_prompt = build_prompt(tokenizer, load_corpus(CORPUS_SHORT)[0])
+    warmup_inputs = tokenizer(warmup_prompt, return_tensors="pt")
+    for _ in range(WARMUP):
+        model.generate(**warmup_inputs, max_new_tokens=MAX_TOKENS, do_sample=False)
+
+    label = f"OpenVINO ({device}, {quant}, batch={batch_size}, greedy)"
+    lines = [f"\n=== {label} ==="]
+    tps_short, tps_long = [], []
+
+    short_corpus = load_corpus(CORPUS_SHORT)
+    long_corpus = load_corpus(CORPUS_LONG)
+
+    for tag, questions, tps_list in [("short", short_corpus, tps_short), ("long", long_corpus, tps_long)]:
+        lines.append(f"\n  -- {tag} questions --")
+        for question in questions:
+            prompt = build_prompt(tokenizer, question)
+            inputs = tokenizer([prompt] * batch_size, return_tensors="pt")
+            input_len = inputs["input_ids"].shape[1]
+            t0 = time.perf_counter()
+            output_ids = model.generate(**inputs, max_new_tokens=MAX_TOKENS, do_sample=False)
+            elapsed = time.perf_counter() - t0
+            total_tokens = sum(len(ids) - input_len for ids in output_ids)
+            throughput = total_tokens / elapsed
+            tps_list.append(throughput)
+        lines += summarize(tps_list, tag)
+
+    return lines
+
+
+def bench_onnxruntime(device, batch_size, quant="int8"):
+    from optimum.onnxruntime import ORTModelForCausalLM
+
+    ort_model_dir = f"{MODEL_ID}-ort-{quant}"
+    tokenizer = transformers.AutoTokenizer.from_pretrained(MODEL_ID)
+
+    def _model_ready(path):
+        return any(
+            os.path.isfile(os.path.join(path, f))
+            for f in ("model.onnx", "model_quantized.onnx")
+        )
+
+    if not _model_ready(ort_model_dir):
+        if quant == "int8":
+            from optimum.onnxruntime import ORTQuantizer
+            from optimum.onnxruntime.configuration import AutoQuantizationConfig
+            fp32_dir = f"{MODEL_ID}-ort-fp32"
+            if not _model_ready(fp32_dir):
+                m = ORTModelForCausalLM.from_pretrained(MODEL_ID, export=True)
+                m.save_pretrained(fp32_dir)
+                tokenizer.save_pretrained(fp32_dir)
+            qconfig = AutoQuantizationConfig.avx2(is_static=False, per_channel=False)
+            quantizer = ORTQuantizer.from_pretrained(fp32_dir, file_name="model.onnx")
+            quantizer.quantize(save_dir=ort_model_dir, quantization_config=qconfig)
+            tokenizer.save_pretrained(ort_model_dir)
+        else:
+            m = ORTModelForCausalLM.from_pretrained(MODEL_ID, export=True)
+            m.save_pretrained(ort_model_dir)
+            tokenizer.save_pretrained(ort_model_dir)
+
+    quant_file = "model_quantized.onnx" if quant == "int8" else "model.onnx"
+    model = ORTModelForCausalLM.from_pretrained(ort_model_dir, file_name=quant_file)
+
+    warmup_prompt = build_prompt(tokenizer, load_corpus(CORPUS_SHORT)[0])
+    warmup_inputs = tokenizer(warmup_prompt, return_tensors="pt")
+    for _ in range(WARMUP):
+        model.generate(**warmup_inputs, max_new_tokens=MAX_TOKENS, do_sample=False)
+
+    label = f"ONNX Runtime ({device}, {quant}, batch={batch_size}, greedy)"
+    lines = [f"\n=== {label} ==="]
+    tps_short, tps_long = [], []
+
+    short_corpus = load_corpus(CORPUS_SHORT)
+    long_corpus = load_corpus(CORPUS_LONG)
+
+    for tag, questions, tps_list in [("short", short_corpus, tps_short), ("long", long_corpus, tps_long)]:
+        lines.append(f"\n  -- {tag} questions --")
+        for question in questions:
+            prompt = build_prompt(tokenizer, question)
+            inputs = tokenizer([prompt] * batch_size, return_tensors="pt")
+            input_len = inputs["input_ids"].shape[1]
+            t0 = time.perf_counter()
+            output_ids = model.generate(**inputs, max_new_tokens=MAX_TOKENS, do_sample=False)
+            elapsed = time.perf_counter() - t0
+            total_tokens = sum(len(ids) - input_len for ids in output_ids)
+            throughput = total_tokens / elapsed
+            tps_list.append(throughput)
+        lines += summarize(tps_list, tag)
+
+    return lines
+
+
 def bench_llama_cpp(batch_size):
     from llama_cpp import Llama
     from huggingface_hub import hf_hub_download
@@ -162,19 +312,45 @@ def bench_llama_cpp(batch_size):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--device", choices=["cpu", "cuda"], default="cpu")
-    parser.add_argument("--backend", choices=["ct2", "vllm", "llama", "all"], default="all")
-    parser.add_argument("--quant", choices=["int8", "int8_float16", "float16"], default="int8")
+    parser.add_argument("--backend", choices=["ct2", "vllm", "llama", "sglang", "ov", "ort", "all"], default="all")
+    parser.add_argument("--quant", choices=["int8", "int8_float16", "float16", "int4"], default="int8")
     parser.add_argument("--batch-size", type=int, default=1)
     args = parser.parse_args()
 
     results = []
     if args.backend in ("ct2", "all"):
-        results += bench_ctranslate2(args.device, args.quant, args.batch_size,
-                                     load_corpus(CORPUS_SHORT))
+        try:
+            results += bench_ctranslate2(args.device, args.quant, args.batch_size,
+                                         load_corpus(CORPUS_SHORT))
+        except Exception as e:
+            print(f"[ct2] skipped: {e}")
     if args.backend in ("vllm", "all"):
-        results += bench_vllm(args.device, args.batch_size)
+        try:
+            results += bench_vllm(args.device, args.batch_size)
+        except Exception as e:
+            print(f"[vllm] skipped: {e}")
     if args.backend in ("llama", "all"):
-        results += bench_llama_cpp(args.batch_size)
+        try:
+            results += bench_llama_cpp(args.batch_size)
+        except Exception as e:
+            print(f"[llama] skipped: {e}")
+    if args.backend in ("sglang", "all"):
+        try:
+            results += bench_sglang(args.device, args.batch_size)
+        except Exception as e:
+            print(f"[sglang] skipped: {e}")
+    if args.backend in ("ov", "all"):
+        try:
+            ov_quant = args.quant if args.quant in ("int8", "int4") else "int8"
+            results += bench_openvino(args.device, args.batch_size, ov_quant)
+        except Exception as e:
+            print(f"[openvino] skipped: {e}")
+    if args.backend in ("ort", "all"):
+        try:
+            ort_quant = args.quant if args.quant in ("int8",) else "fp32"
+            results += bench_onnxruntime(args.device, args.batch_size, ort_quant)
+        except Exception as e:
+            print(f"[ort] skipped: {e}")
 
     output = "\n" + "=" * 40 + " RESULTS " + "=" * 40 + "\n" + "\n".join(results)
     print(output)

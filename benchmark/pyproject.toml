@@ -8,6 +8,10 @@ dependencies = [
     "huggingface_hub",
     "llama-cpp-python",
     "vllm-cpu==0.21.0",
+    "sglang[runtime-common]",
+    "optimum-intel[openvino]",
+    "optimum[onnxruntime]",
+    "datasets>=2.0",
     "torch==2.11.0+cpu",
     "torchvision==0.26.0+cpu",
 ]

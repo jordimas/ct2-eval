@@ -1,0 +1,42 @@
+
+======================================== RESULTS ========================================
+
+=== CTranslate2 (cpu, int8, batch=1, beam=1) ===
+
+  -- short questions --
+  avg=21.7  p50=22.6  min=17.0  max=23.8  std=1.9 tok/s  (short)
+
+  -- long questions --
+  avg=22.2  p50=22.7  min=19.4  max=23.3  std=1.2 tok/s  (long)
+
+=== vLLM (cpu, float32, batch=1, greedy) ===
+
+  -- short questions --
+  avg=9.5  p50=9.6  min=9.0  max=9.9  std=0.4 tok/s  (short)
+
+  -- long questions --
+  avg=9.9  p50=9.9  min=9.7  max=9.9  std=0.1 tok/s  (long)
+
+=== llama.cpp (cpu, Q8_0, batch=1 sequential, greedy) ===
+
+  -- short questions --
+  avg=33.2  p50=33.5  min=26.8  max=35.0  std=2.1 tok/s  (short)
+
+  -- long questions --
+  avg=34.8  p50=34.9  min=34.2  max=35.0  std=0.2 tok/s  (long)
+
+=== OpenVINO (cpu, int8, batch=1, greedy) ===
+
+  -- short questions --
+  avg=33.1  p50=33.3  min=31.3  max=33.5  std=0.4 tok/s  (short)
+
+  -- long questions --
+  avg=33.3  p50=33.4  min=32.8  max=33.5  std=0.2 tok/s  (long)
+
+=== ONNX Runtime (cpu, int8, batch=1, greedy) ===
+
+  -- short questions --
+  avg=26.7  p50=26.8  min=24.6  max=28.0  std=0.8 tok/s  (short)
+
+  -- long questions --
+  avg=25.3  p50=25.3  min=25.0  max=25.7  std=0.1 tok/s  (long)
