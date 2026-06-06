@@ -55,7 +55,7 @@ tokenizer_path = args.tokenizer_path
 num_runs = args.num_runs
 warmup_runs = args.warmup_runs
 num_sentences = args.num_sentences
-devices = ["cuda"]
+devices = ["cpu", "cuda"]
 
 # ------------------------
 # Load tokenizer
