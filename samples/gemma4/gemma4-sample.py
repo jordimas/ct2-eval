@@ -32,7 +32,7 @@ res = gen.generate_batch(
     sampling_topk=1,
     sampling_topp=0.1,
     include_prompt_in_result=False,
-    end_token="<turn|>",
+#    end_token="<turn|>",
 )
 print(tok.convert_tokens_to_string(res[0].sequences[0]))
 print(f"\nTotal execution time: {time.time() - total_start:.4f} seconds")

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 
-models=("google/gemma-4-31b-it" "google/gemma-4-12b-it")
+models=("google/gemma-4-12b-it" "google/gemma-4-31b-it")
 
 # Loop through each model
 for model in "${models[@]}"; do
