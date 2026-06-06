@@ -55,7 +55,7 @@ tokenizer_path = args.tokenizer_path
 num_runs = args.num_runs
 warmup_runs = args.warmup_runs
 num_sentences = args.num_sentences
-devices = ["cpu"]
+devices = ["cuda"]
 
 # ------------------------
 # Load tokenizer
@@ -147,7 +147,7 @@ for device in devices:
         # ------------------------
         for warmup_idx in range(warmup_runs):
             warmup_start = time.time()
-            _ = translator.translate_batch(tokenized_sentences)
+            _ = translator.translate_batch(tokenized_sentences, max_batch_size=32)
             warmup_elapsed = time.time() - warmup_start
             if verbose:
                 print(f"  Warm-up {warmup_idx + 1}/{warmup_runs}: {warmup_elapsed:.2f}s")
@@ -161,7 +161,7 @@ for device in devices:
 
         for run_idx in range(num_runs):
             start_time = time.time()
-            translated_batches = translator.translate_batch(tokenized_sentences)
+            translated_batches = translator.translate_batch(tokenized_sentences, max_batch_size=32)
             end_time = time.time()
             elapsed_time = end_time - start_time
 
