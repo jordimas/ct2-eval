@@ -35,6 +35,42 @@ parser.add_argument(
     help="Number of warm-up runs before timed runs (not included in statistics).",
 )
 parser.add_argument(
+    "--devices",
+    type=str,
+    default="cpu,cuda",
+    help="Comma-separated list of devices to benchmark.",
+)
+parser.add_argument(
+    "--compute_types",
+    type=str,
+    default=None,
+    help="Comma-separated list of compute types to benchmark. Defaults to all supported types.",
+)
+parser.add_argument(
+    "--cpu_threads",
+    type=int,
+    default=0,
+    help="Number of CPU threads for CTranslate2. 0 keeps the library default.",
+)
+parser.add_argument(
+    "--num_workers",
+    type=int,
+    default=1,
+    help="Number of CTranslate2 model workers.",
+)
+parser.add_argument(
+    "--language",
+    type=str,
+    default=None,
+    help="Fixed input language code, e.g. ca. Defaults to language detection.",
+)
+parser.add_argument(
+    "--temperature",
+    type=float,
+    default=None,
+    help="Fixed decoding temperature. Use 0 for deterministic beam search. Defaults to faster-whisper fallback temperatures.",
+)
+parser.add_argument(
     "--no_verbose",
     action="store_true",
     dest="no_verbose",
@@ -47,19 +83,43 @@ model_path = args.model_path
 audio_path = args.audio
 num_runs = args.num_runs
 warmup_runs = args.warmup_runs
-devices = ["cpu", "cuda"]
+devices = [device.strip() for device in args.devices.split(",") if device.strip()]
+compute_types_filter = (
+    {
+        compute_type.strip()
+        for compute_type in args.compute_types.split(",")
+        if compute_type.strip()
+    }
+    if args.compute_types
+    else None
+)
+transcribe_kwargs = {}
+if args.language:
+    transcribe_kwargs["language"] = args.language
+if args.temperature is not None:
+    transcribe_kwargs["temperature"] = args.temperature
 
 if verbose:
     print(f"Audio: {audio_path}")
     print(f"Model: {model_path}")
     print(f"Warm-up runs: {warmup_runs}")
     print(f"Number of timed runs per compute type: {num_runs}")
+    print(f"Devices: {devices}")
+    print(
+        f"Compute type filter: {sorted(compute_types_filter) if compute_types_filter else 'all supported'}"
+    )
+    print(f"CPU threads: {args.cpu_threads}")
+    print(f"Model workers: {args.num_workers}")
+    print(
+        f"Transcribe options: "
+        f"{transcribe_kwargs if transcribe_kwargs else 'faster-whisper defaults'}"
+    )
     print(f"CTranslate2 version: {ctranslate2.__version__}")
     print("=" * 70)
 
 
-def transcribe_once(model, audio_path):
-    segments, info = model.transcribe(audio_path)
+def transcribe_once(model, audio_path, transcribe_kwargs):
+    segments, info = model.transcribe(audio_path, **transcribe_kwargs)
     text_parts = []
     num_tokens = 0
     for segment in segments:
@@ -92,13 +152,22 @@ for device in devices:
         print(f"Supported compute types: {sorted(supported_compute_types)}")
 
     for compute_type in sorted(supported_compute_types):
+        if compute_types_filter is not None and compute_type not in compute_types_filter:
+            continue
+
         if verbose:
             print(
                 f"\nTesting compute_type: {compute_type} ({warmup_runs} warm-up + {num_runs} timed runs)"
             )
 
         try:
-            model = WhisperModel(model_path, device=device, compute_type=compute_type)
+            model = WhisperModel(
+                model_path,
+                device=device,
+                compute_type=compute_type,
+                cpu_threads=args.cpu_threads,
+                num_workers=args.num_workers,
+            )
         except (RuntimeError, ValueError) as e:
             if verbose:
                 print(f"  WARNING: Skipping {compute_type} - {e}")
@@ -111,9 +180,9 @@ for device in devices:
         # Warm-up runs
         # ------------------------
         for warmup_idx in range(warmup_runs):
-            warmup_start = time.time()
-            _, _, info = transcribe_once(model, audio_path)
-            warmup_elapsed = time.time() - warmup_start
+            warmup_start = time.perf_counter()
+            _, _, info = transcribe_once(model, audio_path, transcribe_kwargs)
+            warmup_elapsed = time.perf_counter() - warmup_start
             language = info.language
             probability = info.language_probability
             if verbose:
@@ -127,9 +196,11 @@ for device in devices:
         last_transcription = ""
 
         for run_idx in range(num_runs):
-            start_time = time.time()
-            transcription, num_tokens, info = transcribe_once(model, audio_path)
-            end_time = time.time()
+            start_time = time.perf_counter()
+            transcription, num_tokens, info = transcribe_once(
+                model, audio_path, transcribe_kwargs
+            )
+            end_time = time.perf_counter()
             elapsed_time = end_time - start_time
 
             tokens_per_sec = num_tokens / elapsed_time if elapsed_time > 0 else 0
