@@ -42,6 +42,18 @@ parser.add_argument(
     help="Number of warm-up runs before timed runs (not included in statistics).",
 )
 parser.add_argument(
+    "--max_batch_size",
+    type=int,
+    default=64,
+    help="Maximum batch size passed to translate_batch.",
+)
+parser.add_argument(
+    "--batch_type",
+    choices=["examples", "tokens"],
+    default="examples",
+    help="Whether max_batch_size is counted in examples or tokens.",
+)
+parser.add_argument(
     "--no_verbose",
     action="store_true",
     dest="no_verbose",
@@ -55,6 +67,8 @@ tokenizer_path = args.tokenizer_path
 num_runs = args.num_runs
 warmup_runs = args.warmup_runs
 num_sentences = args.num_sentences
+max_batch_size = args.max_batch_size
+batch_type = args.batch_type
 devices = ["cpu", "cuda"]
 
 # ------------------------
@@ -82,6 +96,8 @@ assert len(english_sentences) == len(
 if verbose:
     print(f"Loaded {len(english_sentences)} sentence pairs")
     print(f"Model: {model_path}")
+    print(f"Max batch size: {max_batch_size}")
+    print(f"Batch type: {batch_type}")
     print(f"Warm-up runs: {warmup_runs}")
     print(f"Number of timed runs per compute type: {num_runs}")
     print(f"CTranslate2 version: {ctranslate2.__version__}")
@@ -147,7 +163,11 @@ for device in devices:
         # ------------------------
         for warmup_idx in range(warmup_runs):
             warmup_start = time.time()
-            _ = translator.translate_batch(tokenized_sentences, max_batch_size=32)
+            _ = translator.translate_batch(
+                tokenized_sentences,
+                max_batch_size=max_batch_size,
+                batch_type=batch_type,
+            )
             warmup_elapsed = time.time() - warmup_start
             if verbose:
                 print(f"  Warm-up {warmup_idx + 1}/{warmup_runs}: {warmup_elapsed:.2f}s")
@@ -161,7 +181,11 @@ for device in devices:
 
         for run_idx in range(num_runs):
             start_time = time.time()
-            translated_batches = translator.translate_batch(tokenized_sentences, max_batch_size=32)
+            translated_batches = translator.translate_batch(
+                tokenized_sentences,
+                max_batch_size=max_batch_size,
+                batch_type=batch_type,
+            )
             end_time = time.time()
             elapsed_time = end_time - start_time
 
