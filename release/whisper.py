@@ -1,9 +1,8 @@
 import argparse
 import time
 import ctranslate2
-import librosa
-import transformers
 import numpy as np
+from faster_whisper import WhisperModel
 
 # ------------------------
 # Parse CLI arguments
@@ -18,15 +17,9 @@ parser.add_argument(
     help="CTranslate2 Whisper model path",
 )
 parser.add_argument(
-    "--processor",
-    type=str,
-    default="openai/whisper-tiny",
-    help="HuggingFace WhisperProcessor identifier",
-)
-parser.add_argument(
     "--audio",
     type=str,
-    default="inaguracio2011.mp3",
+    default="short_audio.mp3",
     help="Path to audio file to transcribe.",
 )
 parser.add_argument(
@@ -51,30 +44,30 @@ args = parser.parse_args()
 
 verbose = not args.no_verbose
 model_path = args.model_path
-processor_id = args.processor
 audio_path = args.audio
 num_runs = args.num_runs
 warmup_runs = args.warmup_runs
 devices = ["cpu", "cuda"]
 
-# ------------------------
-# Load and resample the audio
-# ------------------------
-audio, _ = librosa.load(audio_path, sr=16000, mono=True)
-
-# Compute the features of the first 30 seconds of audio.
-processor = transformers.WhisperProcessor.from_pretrained(processor_id)
-inputs = processor(audio, return_tensors="np", sampling_rate=16000)
-features = ctranslate2.StorageView.from_array(inputs.input_features)
-
 if verbose:
     print(f"Audio: {audio_path}")
     print(f"Model: {model_path}")
-    print(f"Processor: {processor_id}")
     print(f"Warm-up runs: {warmup_runs}")
     print(f"Number of timed runs per compute type: {num_runs}")
     print(f"CTranslate2 version: {ctranslate2.__version__}")
     print("=" * 70)
+
+
+def transcribe_once(model, audio_path):
+    segments, info = model.transcribe(audio_path)
+    text_parts = []
+    num_tokens = 0
+    for segment in segments:
+        text_parts.append(segment.text)
+        if segment.tokens is not None:
+            num_tokens += len(segment.tokens)
+    return "".join(text_parts), num_tokens, info
+
 
 # ------------------------
 # Benchmark transcriptions for each device and compute type
@@ -82,7 +75,6 @@ if verbose:
 results = []
 
 for device in devices:
-    # Check if CUDA is available
     if device == "cuda" and ctranslate2.get_cuda_device_count() == 0:
         if verbose:
             print("\n" + "=" * 70)
@@ -94,7 +86,6 @@ for device in devices:
         print(f"\nDEVICE: {device.upper()}")
         print("=" * 70)
 
-    # Get supported compute types for this device
     supported_compute_types = ctranslate2.get_supported_compute_types(device)
 
     if verbose:
@@ -107,34 +98,24 @@ for device in devices:
             )
 
         try:
-            model = ctranslate2.models.Whisper(
-                model_path, compute_type=compute_type, device=device
-            )
-        except RuntimeError as e:
+            model = WhisperModel(model_path, device=device, compute_type=compute_type)
+        except (RuntimeError, ValueError) as e:
             if verbose:
                 print(f"  WARNING: Skipping {compute_type} - {e}")
             continue
 
-        # Detect language
-        lang_results = model.detect_language(features)
-        language, probability = lang_results[0][0]
-
-        prompt = processor.tokenizer.convert_tokens_to_ids(
-            [
-                "<|startoftranscript|>",
-                language,
-                "<|transcribe|>",
-                "<|notimestamps|>",
-            ]
-        )
+        language = None
+        probability = 0.0
 
         # ------------------------
         # Warm-up runs
         # ------------------------
         for warmup_idx in range(warmup_runs):
             warmup_start = time.time()
-            _ = model.generate(features, [prompt])
+            _, _, info = transcribe_once(model, audio_path)
             warmup_elapsed = time.time() - warmup_start
+            language = info.language
+            probability = info.language_probability
             if verbose:
                 print(f"  Warm-up {warmup_idx + 1}/{warmup_runs}: {warmup_elapsed:.2f}s")
 
@@ -147,15 +128,15 @@ for device in devices:
 
         for run_idx in range(num_runs):
             start_time = time.time()
-            gen_results = model.generate(features, [prompt])
+            transcription, num_tokens, info = transcribe_once(model, audio_path)
             end_time = time.time()
             elapsed_time = end_time - start_time
 
-            output_tokens = gen_results[0].sequences_ids[0]
-            num_tokens = len(output_tokens)
             tokens_per_sec = num_tokens / elapsed_time if elapsed_time > 0 else 0
 
-            last_transcription = processor.decode(output_tokens)
+            language = info.language
+            probability = info.language_probability
+            last_transcription = transcription
 
             run_times.append(elapsed_time)
             run_tokens_per_sec.append(tokens_per_sec)
@@ -166,7 +147,6 @@ for device in devices:
                     f"Time: {elapsed_time:.2f}s | Tokens/sec: {tokens_per_sec:.2f}"
                 )
 
-        # Clean up model after all runs for this compute type
         del model
 
         results.append(
