@@ -25,13 +25,13 @@ parser.add_argument(
 parser.add_argument(
     "--num_runs",
     type=int,
-    default=3,
+    default=20,
     help="Number of times to run each device for statistical analysis.",
 )
 parser.add_argument(
     "--warmup_runs",
     type=int,
-    default=1,
+    default=2,
     help="Number of warm-up runs before timed runs (not included in statistics).",
 )
 parser.add_argument(
